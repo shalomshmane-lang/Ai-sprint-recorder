@@ -1,4 +1,4 @@
-var CACHE_NAME = 'retsef-cache-v2';
+var CACHE_NAME = 'retsef-cache-v3';
 var ASSETS = ['./index.html','./style.css','./app.js','./manifest.webmanifest','./icon.svg'];
 
 self.addEventListener('install', function(event){

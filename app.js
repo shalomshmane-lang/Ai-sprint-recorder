@@ -4,46 +4,46 @@
 /* ---------------------------------------------------------------------
    Storage
 --------------------------------------------------------------------- */
-var STORAGE_KEY = 'retsef_v1';
+var STORAGE_KEY = 'retsef_v2_en';
 
 function seedData(){
   return {
     profile: { name:'', role:'', onboarded:false },
     patients: [
       {
-        id:'p1', name:'נועה כהן', room:'חדר 3 · מיטה 2', age:'גיל 4',
+        id:'p1', name:'Emma Carter', room:'Room 3 · Bed 2', age:'Age 4',
         items:[
           {
             id:'i1', patientId:'p1', type:'prescription', status:'pending',
             text:null,
-            fields:{ drug:'פרצטמול', dose:'180 מ"ג', route:'פומי', frequency:'כל 6 שעות, לפי הצורך לחום', duration:'', indication:'חום' },
+            fields:{ drug:'Acetaminophen (Tylenol)', dose:'180 mg', route:'Oral', frequency:'Every 6 hours, PRN', duration:'', indication:'Fever' },
             missing:['duration'],
             time:'06:42', createdAt: Date.now()-1000*60*40
           },
           {
             id:'i2', patientId:'p1', type:'note', status:'pending',
-            text:'נשימתית: סטורציה יציבה סביב 96% על O2 זרימה נמוכה, הפרשות מוגברות מהצינורית. המודינמית: לחץ דם תקין, קצב לב 118. נוירולוגית: מגיבה לגירוי, אישונים תקינים ותגובתיים.',
+            text:'Respiratory: sats stable around 96% on low-flow O2, increased ETT secretions. Hemodynamic: BP normal, HR 118. Neuro: responsive to stimuli, pupils equal and reactive.',
             time:'06:41', createdAt: Date.now()-1000*60*41
           }
         ]
       },
       {
-        id:'p2', name:'איתן לוי', room:'חדר 5 · מיטה 1', age:'גיל 7',
+        id:'p2', name:'Ethan Bennett', room:'Room 5 · Bed 1', age:'Age 7',
         items:[
           {
             id:'i3', patientId:'p2', type:'uncertain', status:'pending',
-            text:'המשפחה ביקשה עדכון לגבי הפרוצדורה של מחר, צריך לוודא צום מחצות ולתאם עם הרדמה.',
+            text:'Family asked for an update on tomorrow’s procedure, need to confirm NPO after midnight and coordinate with anesthesia.',
             time:'07:03', createdAt: Date.now()-1000*60*10
           }
         ]
       },
       {
-        id:'p3', name:'מאיה בר', room:'חדר 1 · מיטה 1', age:'גיל 2',
+        id:'p3', name:'Maya Turner', room:'Room 1 · Bed 1', age:'Age 2',
         items:[
           {
             id:'i4', patientId:'p3', type:'note', status:'confirmed',
-            text:'שינוי במצב ביום 5: ירידה בדרישת חמצן, הופסקה תמיכה נשימתית לא פולשנית. תיאבון חוזר בהדרגה.',
-            time:'אתמול 22:10', createdAt: Date.now()-1000*60*60*14
+            text:'Day 5 status change: decreased O2 requirement, non-invasive respiratory support discontinued. Appetite gradually returning.',
+            time:'Yesterday 22:10', createdAt: Date.now()-1000*60*60*14
           }
         ]
       }
@@ -73,27 +73,42 @@ var db = loadData();
 /* ---------------------------------------------------------------------
    Rule-based note/prescription classifier
 --------------------------------------------------------------------- */
-var DRUGS = ['פרצטמול','אקמול','איבופרופן','נורופן','אמוקסיצילין','אוגמנטין','טאזוצין',
-  'מרופנם','ונקומיצין','מורפין','פנטניל','מידזולם','דורמיקום','אדרנלין','נוראדרנלין',
-  'דקסמתזון','ונטולין','לזיקס','קלקסן','אומפרזול','זופרן','אונדנסטרון'];
+var DRUGS = ['acamol','tylenol','acetaminophen','paracetamol','panadol','ibuprofen','advil',
+  'nurofen','motrin','amoxicillin','augmentin','tazocin','piperacillin','meropenem',
+  'vancomycin','morphine','fentanyl','midazolam','versed','epinephrine','adrenaline',
+  'norepinephrine','levophed','dexamethasone','decadron','albuterol','ventolin',
+  'furosemide','lasix','ondansetron','zofran','omeprazole','optalgin','dipyrone',
+  'ceftriaxone','rocephin'];
 
-var ROUTES = ['תוך ורידי','דרך הוריד','ורידי','תוך שרירי','תת עורי','דרך הפה','פומי','משאף'];
+var ROUTES = ['iv','intravenous','oral','po','im','intramuscular','subcutaneous','subq',
+  'sc','nebulizer','inhaled','topical','rectal','pr'];
 
-var INDICATIONS = ['חום','כאב','זיהום','הקאות','בחילה','אי שקט','שיעול','גודש','נפיחות','גירוד'];
+var INDICATIONS = ['fever','pain','infection','vomiting','nausea','agitation','cough',
+  'congestion','swelling','itching','irritability','sepsis'];
 
-var FREQ_RE = /(כל\s*\d+\s*שעות|פעם ביום|פעמיים ביום|שלוש פעמים ביום|ארבע פעמים ביום|לפי הצורך|\d+\s*פעמים ביום)/;
-var DOSE_RE = /(\d+(?:\.\d+)?)\s*(מ"ג\/ק"ג|מ״ג\/ק"ג|מ"ג|מ״ג|מיליגרם|מ"ל|מ״ל|יחידות|מק"ג)/;
-var DURATION_RE = /(\d+)\s*(ימים|יום|שבועות|שבוע)\b/;
+var FREQ_RE = /(every\s*\d+\s*hours?|once a day|twice a day|three times a day|four times (?:a day|daily)|\d+\s*times a day|as needed|prn)/i;
+var DOSE_RE = /(\d+(?:\.\d+)?)\s*(mg\/kg|mg|mcg|ml|cc|units?)\b/i;
+var DURATION_RE = /(\d+)\s*(days?|weeks?)\b/i;
+
+var UPPER_ABBR = { iv:'IV', im:'IM', po:'PO', pr:'PR', sc:'SC', subq:'SubQ' };
+function displayTerm(term){
+  if(UPPER_ABBR[term.toLowerCase()]) return UPPER_ABBR[term.toLowerCase()];
+  return term.charAt(0).toUpperCase() + term.slice(1);
+}
+function escapeRegex(s){ return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); }
 
 function findFirst(list, text){
-  for(var i=0;i<list.length;i++){ if(text.indexOf(list[i])>-1) return list[i]; }
+  for(var i=0;i<list.length;i++){
+    var re = new RegExp('\\b'+escapeRegex(list[i])+'\\b','i');
+    if(re.test(text)) return displayTerm(list[i]);
+  }
   return '';
 }
 
 function splitSegments(raw){
   var text = (raw||'').trim();
   if(!text) return [];
-  var parts = text.split(/[\.\!\?]+|\s+(?:בנוסף|וגם|וכן|עוד דבר|לגבי)\s+/);
+  var parts = text.split(/[\.\!\?]+|\s+(?:also|in addition|additionally|and also|one more thing|regarding|plus)\s+/i);
   var out = [];
   for(var i=0;i<parts.length;i++){
     var s = parts[i].trim();
@@ -120,7 +135,7 @@ function classifySegment(segment){
       drug: drug || '',
       dose: doseMatch ? doseMatch[0] : '',
       route: route || '',
-      frequency: freqMatch ? freqMatch[0] : '',
+      frequency: freqMatch ? displayTerm(freqMatch[0]) : '',
       duration: durationMatch ? durationMatch[0] : '',
       indication: indication || ''
     };
@@ -168,6 +183,7 @@ function esc(s){
 --------------------------------------------------------------------- */
 var SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition || null;
 var recognitionSupported = !!SpeechRecognitionAPI;
+var RECOGNITION_LANG = 'en-US';
 var micPermission = 'unknown'; // unknown | granted | denied
 var recognition = null;
 var finalTranscript = '';
@@ -184,7 +200,6 @@ var state = {
   editingItemId:null,
   editBuffer:null,
   newItemIds:[],
-  recDenied:false,
   useManualEntry:!recognitionSupported,
   manualText:''
 };
@@ -197,53 +212,52 @@ function iconNfc(){ return '&#128246;'; }
 function iconBg(){ return '&#8635;'; }
 function iconBell(){ return '&#128276;'; }
 
-function statusbar(){ return '<div class="statusbar"><span>'+nowLabel()+'</span><span class="icons">׀׀׀ · 82%</span></div>'; }
-function bgpill(){ return '<div class="bgpill"><span class="dot"></span>פעיל ברקע</div>'; }
+function bgpill(){ return '<div class="bgpill"><span class="dot"></span>Background active</div>'; }
 
 /* ---------------------------------------------------------------------
    Screens: onboarding
 --------------------------------------------------------------------- */
 function screenOnboard1(){
-  return statusbar() + '<div class="screenbody">'
+  return '<div class="screenbody">'
     + '<div class="center-flow" style="height:100%;">'
-    + '<div style="font-family:var(--font-display); font-weight:700; font-size:26px; color:var(--accent);">רצף</div>'
-    + '<div class="app-sub" style="max-width:26ch;">תחילת משמרת. הפרטים נשמרים במכשיר הזה בלבד.</div>'
-    + '<div class="field" style="width:100%;"><label>שם מלא</label><input id="onb-name" value="'+esc(db.profile.name)+'" placeholder="לדוגמה: ד״ר טל אבני"></div>'
-    + '<div class="field" style="width:100%;"><label>תפקיד</label><select id="onb-role">'
-      + ['רופא/ה מתמחה','רופא/ה בכיר/ה','אח/ות'].map(function(r){
+    + '<div style="font-family:var(--font-display); font-weight:700; font-size:28px; color:var(--accent);">Retsef</div>'
+    + '<div class="app-sub" style="max-width:32ch;">Start of shift. Your details are stored on this device only.</div>'
+    + '<div class="field" style="width:100%;"><label>Full name</label><input id="onb-name" value="'+esc(db.profile.name)+'" placeholder="e.g. Dr. Sam Rivera"></div>'
+    + '<div class="field" style="width:100%;"><label>Role</label><select id="onb-role">'
+      + ['Resident Physician','Attending Physician','Nurse'].map(function(r){
           return '<option '+(db.profile.role===r?'selected':'')+'>'+r+'</option>';
         }).join('')
     + '</select></div>'
-    + '<button class="btn btn-primary btn-block" data-action="onboard1-continue">המשך להרשאות</button>'
+    + '<button class="btn btn-primary btn-block" data-action="onboard1-continue">Continue to permissions</button>'
     + '</div></div>';
 }
 
 function screenOnboard2(){
   var micRow;
   if(micPermission==='granted'){
-    micRow = permRow(iconMic(),'מיקרופון','אושר', 'ok');
+    micRow = permRow(iconMic(),'Microphone','Granted', 'ok');
   } else if(micPermission==='denied'){
-    micRow = permRow(iconMic(),'מיקרופון','נדחה — ההקלטה תעבוד במצב הקלדה ידנית', 'bad');
+    micRow = permRow(iconMic(),'Microphone','Denied — recording will fall back to manual typing', 'bad');
   } else {
-    micRow = permRow(iconMic(),'מיקרופון','נדרש אישור כדי לתמלל הערות קוליות', 'pending');
+    micRow = permRow(iconMic(),'Microphone','Required to transcribe spoken notes', 'pending');
   }
   var speechNote = recognitionSupported
     ? ''
-    : '<div class="infobanner">&#9888; הדפדפן הזה לא תומך בזיהוי דיבור אוטומטי. אפשר להמשיך — תמלול הערות יתבצע בהקלדה ידנית.</div>';
+    : '<div class="infobanner">&#9888; This browser does not support automatic speech recognition. You can continue — recording will use manual typing instead.</div>';
 
-  return statusbar() + '<div class="screenbody">'
-    + '<div class="app-title">הרשאות למשמרת</div>'
-    + '<div class="app-sub">כדי שההקלטה תעבוד נדרשות ההרשאות הבאות. בטלפון אמיתי הפעולה ברקע דורשת אפליקציה נייטיבית — כאן ההקלטה פועלת כשהאפליקציה פתוחה.</div>'
+  return '<div class="screenbody">'
+    + '<div class="app-title">Permissions for this shift</div>'
+    + '<div class="app-sub">Recording needs these permissions. On a real phone, running in the background while locked requires a native app — here, recording works while this app is open.</div>'
     + micRow
-    + permRow(iconNfc(),'קורא NFC','מדומה בפרוטוטייפ הזה', 'pending')
-    + permRow(iconBg(),'פעולה ברקע','מוגבל בדפדפן — עובד כל עוד האפליקציה פתוחה', 'pending')
-    + permRow(iconBell(),'התראות','לעדכון על הערות ממתינות (מדומה)', 'pending')
+    + permRow(iconNfc(),'NFC reader','Simulated in this prototype', 'pending')
+    + permRow(iconBg(),'Background activity','Limited in a browser — works while the app stays open', 'pending')
+    + permRow(iconBell(),'Notifications','For pending-note alerts (simulated)', 'pending')
     + speechNote
     + '<div style="flex:1"></div>'
     + (micPermission==='unknown'
-        ? '<button class="btn btn-primary btn-block" data-action="request-mic">בקש הרשאת מיקרופון</button>'
-          + '<button class="btn btn-ghost btn-block" data-action="go:onboard-3">דלג בינתיים</button>'
-        : '<button class="btn btn-primary btn-block" data-action="go:onboard-3">המשך</button>')
+        ? '<button class="btn btn-primary btn-block" data-action="request-mic">Request microphone access</button>'
+          + '<button class="btn btn-ghost btn-block" data-action="go:onboard-3">Skip for now</button>'
+        : '<button class="btn btn-primary btn-block" data-action="go:onboard-3">Continue</button>')
     + '</div>';
 }
 function permRow(ic,title,sub,statusCls){
@@ -252,12 +266,12 @@ function permRow(ic,title,sub,statusCls){
 }
 
 function screenOnboard3(){
-  return statusbar() + '<div class="screenbody">'
+  return '<div class="screenbody">'
     + '<div class="center-flow" style="height:100%;">'
     + '<div class="check" style="width:64px; height:64px; font-size:28px;">&#10003;</div>'
-    + '<div class="app-title">המשמרת פעילה</div>'
-    + '<div class="app-sub" style="max-width:26ch;">'+esc(db.profile.name||'המשתמש/ת')+', '+esc(db.profile.role||'')+'. אפשר להתחיל.</div>'
-    + '<button class="btn btn-primary btn-block" style="margin-top:10px;" data-action="onboard3-finish">כניסה לרשימת המטופלים</button>'
+    + '<div class="app-title">Shift active</div>'
+    + '<div class="app-sub" style="max-width:32ch;">'+esc(db.profile.name||'')+', '+esc(db.profile.role||'')+'. Ready to go.</div>'
+    + '<button class="btn btn-primary btn-block" style="margin-top:10px;" data-action="onboard3-finish">Go to patient list</button>'
     + '</div></div>';
 }
 
@@ -274,35 +288,39 @@ function screenHome(){
       + badge + '</div>';
   }).join('');
 
-  return statusbar()
-    + '<div class="screenbody" style="padding-bottom:150px;">'
-    + '<div style="display:flex; justify-content:space-between; align-items:center;">'
-    + '<div><div class="app-title">המשמרת שלי</div><div class="app-sub">'+esc(db.profile.name||'')+' · '+db.patients.length+' מטופלים</div></div>'
+  return '<div class="app-header">'
+    + '<div><div class="app-title">My Shift</div><div class="app-sub">'+esc(db.profile.name||'')+' · '+db.patients.length+' patients</div></div>'
     + bgpill()
     + '</div>'
-    + '<div class="section-label">מטופלים פעילים</div>'
+    + '<div class="screenbody" style="padding-top:10px;">'
+    + '<div class="section-label">Active patients</div>'
     + rows
-    + '<div class="section-label" style="margin-top:6px;">שיוך מטופל חדש</div>'
-    + '<button class="btn btn-outline btn-block" data-action="go:nfc-scan">'+iconNfc()+'&nbsp; סרוק תג NFC</button>'
+    + '<div class="section-label" style="margin-top:6px;">Assign new patient</div>'
+    + '<button class="btn btn-outline btn-block" data-action="go:nfc-scan">'+iconNfc()+'&nbsp; Scan NFC tag</button>'
+    + '<div style="flex:1"></div>'
+    + '<button class="linkbtn" data-action="reset-demo" style="align-self:center;">Reset demo data</button>'
     + '</div>'
-    + fab(false)
+    + fabRow(false)
     + bottomnav('home');
 }
 
-function fab(active){
+function fabRow(active){
   var hint = active
-    ? '<div class="fab-hint">מוכן להקלטה עבור '+(getPatient(state.activePatientId)?esc(getPatient(state.activePatientId).name):'')+'</div>'
-    : '<div class="fab-hint">לחיצה כפולה + החזק לשחרור</div>';
-  return hint + '<button class="fab '+(active?'':'inactive')+'" data-action="pressrecord">'+iconMic()+'</button>';
+    ? 'Ready to record for '+(getPatient(state.activePatientId)?esc(getPatient(state.activePatientId).name):'')
+    : 'Double-press and hold to record';
+  return '<div class="fab-row">'
+    + '<button class="fab '+(active?'':'inactive')+'" data-action="pressrecord">'+iconMic()+'</button>'
+    + '<div class="fab-hint">'+hint+'</div>'
+    + '</div>';
 }
 
 function bottomnav(active){
   var tp = totalPending();
   return '<div class="bottomnav">'
-    + '<button class="navbtn '+(active==='home'?'active':'')+'" data-action="go:home">&#127968;<span>בית</span></button>'
+    + '<button class="navbtn '+(active==='home'?'active':'')+'" data-action="go:home">&#127968;<span>Home</span></button>'
     + '<button class="navbtn '+(active==='review'?'active':'')+'" data-action="go:review">'
     + (tp>0 ? '<span class="navbadge">'+tp+'</span>' : '')
-    + '&#128203;<span>לאישור</span></button>'
+    + '&#128203;<span>Review</span></button>'
     + '</div>';
 }
 
@@ -313,26 +331,26 @@ function screenNfcScan(){
   var chips = db.patients.map(function(t){
     return '<button class="chipbtn" data-action="scanpatient:'+t.id+'"><div class="avatar" style="width:32px;height:32px;font-size:12px;">'+initials(t.name)+'</div><div style="flex:1;"><div style="font-weight:700; font-size:13px;">'+esc(t.name)+'</div><div style="font-size:11px; color:var(--ink-soft);">'+esc(t.room)+'</div></div><span style="color:var(--ink-faint);">'+iconNfc()+'</span></button>';
   }).join('');
-  return statusbar() + '<div class="screenbody">'
+  return '<div class="screenbody">'
     + '<div class="center-flow">'
     + '<div class="scan-ring">'+iconNfc()+'</div>'
-    + '<div class="app-title">קרב תג NFC של המטופל</div>'
-    + '<div class="app-sub" style="max-width:28ch;">חומרת NFC אמיתית זמינה רק ב-Android Chrome עם שבב פיזי. בפרוטוטייפ: בחר/י את המטופל.</div>'
+    + '<div class="app-title">Tap the patient’s NFC tag</div>'
+    + '<div class="app-sub" style="max-width:32ch;">Real NFC only works on Android Chrome with a physical tag. In this prototype: pick the patient below.</div>'
     + '<div style="width:100%; display:flex; flex-direction:column; gap:8px; margin-top:4px;">'+chips+'</div>'
-    + '<button class="btn btn-ghost btn-block" data-action="go:home">ביטול</button>'
+    + '<button class="btn btn-ghost btn-block" data-action="go:home">Cancel</button>'
     + '</div></div>';
 }
 
 function screenNfcSuccess(){
   var p = getPatient(state.activePatientId);
   if(!p) return screenHome();
-  return statusbar() + '<div class="screenbody">'
+  return '<div class="screenbody">'
     + '<div class="center-flow">'
     + '<div class="scan-ring success">&#10003;</div>'
-    + '<div class="app-title">שויך: '+esc(p.name)+'</div>'
-    + '<div class="app-sub" style="max-width:26ch;">הסריקה תקפה להקלטה אחת בלבד. אפשר להכתיב כמה הערות ומרשמים ברצף — המערכת תפצל ותסווג אותם.</div>'
-    + '<button class="btn btn-primary btn-block" data-action="pressrecord">'+iconMic()+'&nbsp; התחל הקלטה עכשיו</button>'
-    + '<button class="btn btn-ghost btn-block" data-action="go:home">חזרה לרשימה, אקליט מאוחר יותר</button>'
+    + '<div class="app-title">Linked: '+esc(p.name)+'</div>'
+    + '<div class="app-sub" style="max-width:32ch;">This scan is valid for one recording. You can dictate several notes and prescriptions in one go — the app will split and classify them.</div>'
+    + '<button class="btn btn-primary btn-block" data-action="pressrecord">'+iconMic()+'&nbsp; Start recording now</button>'
+    + '<button class="btn btn-ghost btn-block" data-action="go:home">Back to list, record later</button>'
     + '</div></div>';
 }
 
@@ -340,14 +358,14 @@ function screenNfcSuccess(){
    Screens: recording
 --------------------------------------------------------------------- */
 function screenRecordWarning(){
-  return statusbar() + '<div class="screenbody">'
+  return '<div class="screenbody">'
     + '<div class="center-flow">'
     + '<div class="warnbanner" style="text-align:center; flex-direction:column; align-items:center;">'
     + '<div class="buzzicon">!</div>'
-    + '<div><b>לא זוהתה סריקת מטופל תקפה</b>יש לסרוק את תג ה-NFC של המטופל לפני ההקלטה, כדי שההערה תשויך נכון.</div>'
+    + '<div><b>No valid patient scan detected</b>Scan the patient’s NFC tag before recording, so the note gets linked correctly.</div>'
     + '</div>'
-    + '<button class="btn btn-primary btn-block" data-action="go:nfc-scan">'+iconNfc()+'&nbsp; סרוק עכשיו</button>'
-    + '<button class="btn btn-ghost btn-block" data-action="go:home">ביטול ההקלטה</button>'
+    + '<button class="btn btn-primary btn-block" data-action="go:nfc-scan">'+iconNfc()+'&nbsp; Scan now</button>'
+    + '<button class="btn btn-ghost btn-block" data-action="go:home">Cancel recording</button>'
     + '</div></div>';
 }
 
@@ -356,33 +374,33 @@ function screenRecording(){
   if(!p) return screenHome();
 
   if(state.useManualEntry){
-    return statusbar() + '<div class="screenbody">'
+    return '<div class="screenbody">'
       + '<div class="app-title">'+esc(p.name)+'</div>'
-      + '<div class="app-sub">'+esc(p.room)+' · הדפדפן לא תומך בזיהוי דיבור, או שהמיקרופון נחסם — הקלד/י את תוכן ההקלטה</div>'
-      + '<div class="field"><textarea id="manual-transcript" placeholder="לדוגמה: תרשום פרצטמול 180 מיליגרם פומי כל 6 שעות לפי הצורך לחום. בנוסף, נשימתית יציבה, סטורציה 96 אחוז.">'+esc(state.manualText)+'</textarea></div>'
-      + '<button class="btn btn-primary btn-block" data-action="submit-manual">שלח לסיווג</button>'
-      + '<button class="btn btn-ghost btn-block" data-action="go:home">ביטול</button>'
+      + '<div class="app-sub">'+esc(p.room)+' · Speech recognition isn’t supported here, or the mic was blocked — type the recording content instead</div>'
+      + '<div class="field"><textarea id="manual-transcript" placeholder="e.g. Give Tylenol 180 mg oral every 6 hours as needed for fever. Also, respiratory stable, sats 96 percent.">'+esc(state.manualText)+'</textarea></div>'
+      + '<button class="btn btn-primary btn-block" data-action="submit-manual">Submit for classification</button>'
+      + '<button class="btn btn-ghost btn-block" data-action="go:home">Cancel</button>'
       + '</div>';
   }
 
-  return statusbar() + '<div class="screenbody">'
+  return '<div class="screenbody">'
     + '<div class="center-flow">'
-    + '<div class="badge" id="rec-indicator" style="background:var(--ink-faint); padding:0 12px; height:24px; border-radius:100px; font-size:11px;">&#9679; לחץ והחזק כדי להקליט</div>'
+    + '<div class="rec-indicator" id="rec-indicator">&#9679; Press and hold to record</div>'
     + '<div class="app-title">'+esc(p.name)+'</div>'
     + '<div class="app-sub">'+esc(p.room)+'</div>'
     + '<button class="mic-btn" id="mic-btn">'+iconMic()+'</button>'
-    + '<div class="live-transcript empty" id="live-transcript">התמלול יופיע כאן תוך כדי הדיבור…</div>'
-    + '<div class="app-sub" style="max-width:26ch;">לחץ והחזק על המיקרופון כדי להקליט, שחרר לסיום.</div>'
-    + '<button class="btn btn-ghost btn-block" data-action="go:home">ביטול</button>'
+    + '<div class="live-transcript empty" id="live-transcript">Transcript will appear here as you speak…</div>'
+    + '<div class="app-sub" style="max-width:32ch;">Press and hold the microphone to record, release to finish.</div>'
+    + '<button class="btn btn-ghost btn-block" data-action="go:home">Cancel</button>'
     + '</div></div>';
 }
 
 function screenProcessing(){
-  return statusbar() + '<div class="screenbody">'
+  return '<div class="screenbody">'
     + '<div class="center-flow">'
     + '<div class="scan-ring">&#9203;</div>'
-    + '<div class="app-title">מסווג…</div>'
-    + '<div class="app-sub">מפריד בין הערות למרשמים, ומזהה שדות חסרים במרשמים.</div>'
+    + '<div class="app-title">Classifying…</div>'
+    + '<div class="app-sub">Separating notes from prescriptions, and checking prescriptions for missing fields.</div>'
     + '</div></div>';
 }
 
@@ -400,44 +418,44 @@ function itemHtml(it){
   var pillHtml, bodyHtml, actionsHtml;
 
   if(it.type==='uncertain'){
-    pillHtml = '<span class="typepill uncertain">&#9888; סיווג לא ודאי</span>';
+    pillHtml = '<span class="typepill uncertain">&#9888; Unclear classification</span>';
     bodyHtml = '<div class="item-text">'+esc(it.text)+'</div>';
     actionsHtml = it.status==='confirmed'
-      ? '<div class="rxnote" style="color:var(--ok);">&#10003; טופל</div>'
+      ? '<div class="rxnote" style="color:var(--ok);">&#10003; Handled</div>'
       : '<div class="uncertain-choice">'
-        + '<button class="btn btn-outline btn-sm" data-action="classify:'+it.id+':note">סמן כהערה</button>'
-        + '<button class="btn btn-outline btn-sm" data-action="classify:'+it.id+':prescription">סמן כמרשם</button>'
+        + '<button class="btn btn-outline btn-sm" data-action="classify:'+it.id+':note">Mark as note</button>'
+        + '<button class="btn btn-outline btn-sm" data-action="classify:'+it.id+':prescription">Mark as prescription</button>'
         + '</div>';
   } else if(it.type==='prescription'){
-    pillHtml = '<span class="typepill rx">&#8478; מרשם</span>';
+    pillHtml = '<span class="typepill rx">&#8478; Prescription</span>';
     var f = it.fields || {};
     var missing = it.missing || [];
     var fld = function(key,label){
       var isMissing = missing.indexOf(key)>-1;
-      var val = f[key] || (isMissing ? 'נדרשת השלמה' : '');
+      var val = f[key] || (isMissing ? 'Needs completion' : '');
       return '<div class="rxfield '+(isMissing?'missing':'')+'"><span class="flabel">'+label+'</span><span class="fval">'+esc(val)+'</span></div>';
     };
     bodyHtml = '<div class="rxgrid">'
-      + fld('drug','תרופה') + fld('dose','מינון')
-      + fld('route','נתיב מתן') + fld('frequency','תדירות')
-      + fld('duration','משך טיפול') + fld('indication','אינדיקציה')
+      + fld('drug','Drug') + fld('dose','Dose')
+      + fld('route','Route') + fld('frequency','Frequency')
+      + fld('duration','Duration') + fld('indication','Indication')
       + '</div>';
     var canConfirm = missing.length === 0 || it.status==='confirmed';
     actionsHtml = it.status==='confirmed'
-      ? '<div class="rxnote" style="color:var(--ok);">&#10003; אושר ונשמר</div>'
+      ? '<div class="rxnote" style="color:var(--ok);">&#10003; Confirmed and saved</div>'
       : '<div class="item-actions">'
-        + '<button class="btn btn-outline btn-sm" data-action="edit:'+it.id+'">ערוך</button>'
-        + '<button class="btn '+(canConfirm?'btn-primary':'btn-ghost')+' btn-sm" '+(canConfirm?'':'title="יש להשלים שדות חסרים לפני אישור"')+' data-action="'+(canConfirm?('confirm:'+it.id):'edit:'+it.id)+'">'+(canConfirm?'אשר ושמור':'השלם שדות')+'</button>'
+        + '<button class="btn btn-outline btn-sm" data-action="edit:'+it.id+'">Edit</button>'
+        + '<button class="btn '+(canConfirm?'btn-primary':'btn-ghost')+' btn-sm" '+(canConfirm?'':'title="Complete the missing fields before confirming"')+' data-action="'+(canConfirm?('confirm:'+it.id):'edit:'+it.id)+'">'+(canConfirm?'Confirm & save':'Complete fields')+'</button>'
         + '</div>';
   } else {
-    pillHtml = '<span class="typepill note">הערה</span>';
+    pillHtml = '<span class="typepill note">Note</span>';
     bodyHtml = '<div class="item-text">'+esc(it.text)+'</div>';
     actionsHtml = it.status==='confirmed'
-      ? '<div class="rxnote" style="color:var(--ok);">&#10003; תויק</div>'
+      ? '<div class="rxnote" style="color:var(--ok);">&#10003; Filed</div>'
       : '<div class="item-actions">'
-        + '<button class="btn btn-outline btn-sm" data-action="edit:'+it.id+'">ערוך</button>'
-        + '<button class="btn btn-ghost btn-sm" data-action="reject:'+it.id+'">דחה</button>'
-        + '<button class="btn btn-primary btn-sm" data-action="confirm:'+it.id+'">אשר לתיוק</button>'
+        + '<button class="btn btn-outline btn-sm" data-action="edit:'+it.id+'">Edit</button>'
+        + '<button class="btn btn-ghost btn-sm" data-action="reject:'+it.id+'">Discard</button>'
+        + '<button class="btn btn-primary btn-sm" data-action="confirm:'+it.id+'">Confirm & file</button>'
         + '</div>';
   }
 
@@ -468,13 +486,14 @@ function screenReview(){
       + '</div>';
   }).join('');
 
-  if(!blocks.replace(/\s/g,'')) blocks = '<div class="empty">אין פריטים ממתינים כרגע</div>';
+  if(!blocks.replace(/\s/g,'')) blocks = '<div class="empty">No pending items right now</div>';
 
   var toastHtml = state.toast ? '<div class="toast">'+esc(state.toast)+'</div>' : '';
 
-  return statusbar() + toastHtml + '<div class="screenbody" style="padding-bottom:70px;">'
-    + '<div class="app-title">לאישור</div>'
-    + '<div class="app-sub">מקובץ לפי מטופל · מרשמים תמיד למעלה בכל בלוק</div>'
+  return '<div class="screenbody">'
+    + toastHtml
+    + '<div class="app-title">Review</div>'
+    + '<div class="app-sub">Grouped by patient · prescriptions always shown first in each block</div>'
     + blocks
     + '</div>'
     + bottomnav('review');
@@ -488,35 +507,35 @@ function screenEdit(){
   var body;
   if(it.type==='prescription'){
     body = '<div class="field-row">'
-      + fieldInput('drug','תרופה', eb.fields.drug)
-      + fieldInput('dose','מינון', eb.fields.dose)
+      + fieldInput('drug','Drug', eb.fields.drug)
+      + fieldInput('dose','Dose', eb.fields.dose)
       + '</div>'
       + '<div class="field-row">'
-      + fieldInput('route','נתיב מתן', eb.fields.route)
-      + fieldInput('frequency','תדירות', eb.fields.frequency)
+      + fieldInput('route','Route', eb.fields.route)
+      + fieldInput('frequency','Frequency', eb.fields.frequency)
       + '</div>'
       + '<div class="field-row">'
-      + fieldInput('duration','משך טיפול', eb.fields.duration, (eb.missing||[]).indexOf('duration')>-1)
-      + fieldInput('indication','אינדיקציה', eb.fields.indication, (eb.missing||[]).indexOf('indication')>-1)
+      + fieldInput('duration','Duration', eb.fields.duration, (eb.missing||[]).indexOf('duration')>-1)
+      + fieldInput('indication','Indication', eb.fields.indication, (eb.missing||[]).indexOf('indication')>-1)
       + '</div>';
   } else {
-    body = '<div class="field"><label>תוכן ההערה</label><textarea id="edit-text">'+esc(eb.text||'')+'</textarea></div>';
+    body = '<div class="field"><label>Note content</label><textarea id="edit-text">'+esc(eb.text||'')+'</textarea></div>';
   }
 
   return '<div class="modal-overlay" data-action="closeedit"><div class="modal" onclick="event.stopPropagation()">'
     + '<div class="modal-handle"></div>'
-    + '<div class="app-title">עריכה לפני אישור</div>'
+    + '<div class="app-title">Edit before confirming</div>'
     + body
     + '<div class="modal-actions">'
-    + '<button class="btn btn-ghost" data-action="closeedit">ביטול</button>'
-    + '<button class="btn btn-primary" data-action="savedit">שמור</button>'
+    + '<button class="btn btn-ghost" data-action="closeedit">Cancel</button>'
+    + '<button class="btn btn-primary" data-action="savedit">Save</button>'
     + '</div>'
     + '</div></div>';
 }
 function fieldInput(key,label,val,isMissing){
   return '<div class="field"><label>'+label+'</label>'
     + '<input class="'+(isMissing?'missing':'')+'" data-key="'+key+'" value="'+esc(val)+'">'
-    + (isMissing ? '<span class="fieldnote">שדה חובה להשלמה לפני אישור</span>' : '')
+    + (isMissing ? '<span class="fieldnote">Required before confirming</span>' : '')
     + '</div>';
 }
 
@@ -611,6 +630,14 @@ function handleAction(action){
     state.screen = arg1;
   }
 
+  else if(cmd==='reset-demo'){
+    if(window.confirm('Reset all demo data (patients, notes, prescriptions)?')){
+      localStorage.removeItem(STORAGE_KEY);
+      location.reload();
+    }
+    return;
+  }
+
   else if(cmd==='scanpatient'){
     state.activePatientId = arg1;
     state.scanValid = true;
@@ -646,7 +673,7 @@ function handleAction(action){
   else if(cmd==='confirm'){
     var it2 = findItem(arg1);
     if(it2){ it2.status='confirmed'; saveData(); }
-    state.toast = 'אושר ותויק בתיק המטופל';
+    state.toast = 'Confirmed and filed to the patient record';
     render();
     setTimeout(function(){ state.toast=null; render(); }, 2000);
     return;
@@ -654,7 +681,7 @@ function handleAction(action){
 
   else if(cmd==='reject'){
     var it3 = findItem(arg1);
-    if(it3){ it3.status='confirmed'; it3.text = it3.text + ' (נדחה)'; saveData(); }
+    if(it3){ it3.status='confirmed'; it3.text = it3.text + ' (discarded)'; saveData(); }
   }
 
   else if(cmd==='edit'){ openEdit(arg1); return; }
@@ -740,7 +767,7 @@ function startRecognition(){
   finalTranscript = '';
   try{
     recognition = new SpeechRecognitionAPI();
-    recognition.lang = 'he-IL';
+    recognition.lang = RECOGNITION_LANG;
     recognition.continuous = true;
     recognition.interimResults = true;
 
@@ -767,7 +794,7 @@ function startRecognition(){
     recognition.start();
     recognitionActive = true;
     var indicator = document.getElementById('rec-indicator');
-    if(indicator){ indicator.textContent = '● מקליט — שחרר לסיום'; indicator.style.background = 'var(--critical)'; indicator.style.color = '#fff'; }
+    if(indicator){ indicator.textContent = '● Recording — release to finish'; indicator.classList.add('live'); }
     var btn = document.getElementById('mic-btn');
     if(btn){ btn.classList.add('live'); }
   }catch(e){
@@ -782,7 +809,7 @@ function updateLiveTranscript(finalText, interimText){
   var text = (finalText + interimText).trim();
   if(!text){
     el.className = 'live-transcript empty';
-    el.textContent = 'התמלול יופיע כאן תוך כדי הדיבור…';
+    el.textContent = 'Transcript will appear here as you speak…';
     return;
   }
   el.className = 'live-transcript';
@@ -832,8 +859,8 @@ function finishRecording(rawText){
     state.newItemIds = newIds;
     state.scanValid = false;
     state.toast = newIds.length===0
-      ? 'לא זוהה תוכן להקלטה'
-      : (newIds.length>1 ? (newIds.length+' פריטים חדשים סווגו') : 'פריט חדש סווג');
+      ? 'No content detected in the recording'
+      : (newIds.length>1 ? (newIds.length+' new items classified') : 'New item classified');
     state.screen = 'review';
     render();
     setTimeout(function(){ state.toast=null; render(); }, 2600);
