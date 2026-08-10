@@ -201,7 +201,8 @@ var state = {
   editBuffer:null,
   newItemIds:[],
   useManualEntry:!recognitionSupported,
-  manualText:''
+  manualText:'',
+  roleDropdownOpen:false
 };
 
 /* ---------------------------------------------------------------------
@@ -217,17 +218,34 @@ function bgpill(){ return '<div class="bgpill"><span class="dot"></span>Backgrou
 /* ---------------------------------------------------------------------
    Screens: onboarding
 --------------------------------------------------------------------- */
+var ROLE_OPTIONS = ['Resident Physician','Attending Physician','Nurse'];
+
+function roleDropdown(){
+  var current = db.profile.role || ROLE_OPTIONS[0];
+  var open = state.roleDropdownOpen;
+  var options = ROLE_OPTIONS.map(function(r, i){
+    var selected = r === db.profile.role;
+    return '<div class="dropdown-option'+(selected?' selected':'')+'" data-action="select-role:'+i+'">'
+      + '<span>'+esc(r)+'</span>'
+      + (selected ? '<span class="dropdown-check">&#10003;</span>' : '')
+      + '</div>';
+  }).join('');
+  return '<div class="dropdown'+(open?' open':'')+'">'
+    + '<button type="button" class="dropdown-trigger" data-action="toggle-role-dropdown">'
+      + '<span>'+esc(current)+'</span>'
+      + '<span class="dropdown-arrow"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3.5 5.25L7 8.75L10.5 5.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>'
+    + '</button>'
+    + (open ? '<div class="dropdown-list">'+options+'</div>' : '')
+    + '</div>';
+}
+
 function screenOnboard1(){
-  return '<div class="screenbody">'
+  return '<div class="screenbody" style="background:linear-gradient(180deg, var(--accent-soft) 0%, var(--surface) 55%);">'
     + '<div class="center-flow" style="height:100%;">'
-    + '<div style="font-family:var(--font-display); font-weight:700; font-size:28px; color:var(--accent);">Retsef</div>'
-    + '<div class="app-sub" style="max-width:32ch;">Start of shift. Your details are stored on this device only.</div>'
+    + '<div style="font-family:var(--font-display); font-weight:700; font-size:44px; color:var(--accent);">TapTalk</div>'
+    + '<div class="app-sub" style="max-width:32ch;">Tap. Talk. Confirm</div>'
     + '<div class="field" style="width:100%;"><label>Full name</label><input id="onb-name" value="'+esc(db.profile.name)+'" placeholder="e.g. Dr. Sam Rivera"></div>'
-    + '<div class="field" style="width:100%;"><label>Role</label><select id="onb-role">'
-      + ['Resident Physician','Attending Physician','Nurse'].map(function(r){
-          return '<option '+(db.profile.role===r?'selected':'')+'>'+r+'</option>';
-        }).join('')
-    + '</select></div>'
+    + '<div class="field" style="width:100%;"><label>Role</label>'+roleDropdown()+'</div>'
     + '<button class="btn btn-primary btn-block" data-action="onboard1-continue">Continue to permissions</button>'
     + '</div></div>';
 }
@@ -599,6 +617,19 @@ function bind(){
   if(manualBox){
     manualBox.addEventListener('input', function(){ state.manualText = manualBox.value; });
   }
+  if(state.roleDropdownOpen){
+    setTimeout(function(){
+      document.addEventListener('click', closeRoleDropdownOnOutsideClick, {once:true});
+    }, 0);
+  }
+}
+
+function closeRoleDropdownOnOutsideClick(e){
+  var dd = document.querySelector('.dropdown');
+  if(dd && !dd.contains(e.target)){
+    state.roleDropdownOpen = false;
+    render();
+  }
 }
 
 function handleAction(action){
@@ -607,11 +638,19 @@ function handleAction(action){
 
   if(cmd==='onboard1-continue'){
     var nameEl = document.getElementById('onb-name');
-    var roleEl = document.getElementById('onb-role');
     db.profile.name = nameEl ? nameEl.value.trim() : db.profile.name;
-    db.profile.role = roleEl ? roleEl.value : db.profile.role;
     saveData();
     state.screen = 'onboard-2';
+  }
+
+  else if(cmd==='toggle-role-dropdown'){
+    state.roleDropdownOpen = !state.roleDropdownOpen;
+  }
+
+  else if(cmd==='select-role'){
+    db.profile.role = ROLE_OPTIONS[arg1];
+    state.roleDropdownOpen = false;
+    saveData();
   }
 
   else if(cmd==='request-mic'){
