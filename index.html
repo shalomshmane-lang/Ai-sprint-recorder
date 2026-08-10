@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1F6F6B">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+<title>רצף — תמונת מצב משותפת לצוות</title>
+</head>
+<body>
+
+<div class="exhibit">
+  <div class="exhibit-head">
+    <div>
+      <span class="kicker">אבטיפוס פועל · Group 5 · PICU</span>
+      <h1>רצף — תמונת מצב משותפת לצוות</h1>
+      <p>הקלטה אמיתית, תמלול דיבור-לטקסט בעברית וסיווג הערה/מרשם פועלים בפועל בדפדפן. הנתונים נשמרים במכשיר הזה בלבד (localStorage), ללא שרת.</p>
+    </div>
+    <div class="exhibit-meta">
+      עובד הכי טוב ב-Chrome/Edge<br>דורש הרצה מ-http/https (לא file://)
+      <br><button id="reset-btn">איפוס נתוני הדגמה</button>
+    </div>
+  </div>
+
+  <div class="notice">
+    <b>מה אמיתי כאן ומה מדומה:</b> הקלטה, תמלול, סיווג ושמירת נתונים — אמיתיים. סריקת NFC והפעולה ברקע כשהטלפון נעול — מדומות, כי הן דורשות אפליקציית נייטיב.
+  </div>
+
+  <div class="phonewrap">
+    <div class="phone">
+      <div class="screen" id="screen"></div>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+  document.getElementById('reset-btn').addEventListener('click', function(){
+    if(confirm('לאפס את כל נתוני ההדגמה (מטופלים, הערות, מרשמים)?')){
+      localStorage.removeItem('retsef_v1');
+      location.reload();
+    }
+  });
+  if('serviceWorker' in navigator && (location.protocol==='https:' || location.hostname==='localhost')){
+    navigator.serviceWorker.register('sw.js').catch(function(){});
+  }
+</script>
+</body>
+</html>
