@@ -349,13 +349,19 @@ function fabRow(active){
     + '</div>';
 }
 
+function iconHomeNav(){
+  return '<svg width="21" height="21" viewBox="0 0 24 24" fill="none"><path d="M4 11.5L12 4l8 7.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 10v8.5a1 1 0 0 0 1 1h3.5v-5a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v5H17a1 1 0 0 0 1-1V10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+}
+function iconReviewNav(){
+  return '<svg width="21" height="21" viewBox="0 0 24 24" fill="none"><rect x="5.5" y="4.5" width="13" height="16" rx="2.2" stroke="currentColor" stroke-width="1.8"/><path d="M9 4.5h6a1 1 0 0 1 1 1V7a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V5.5a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 12.5l2 2 4-4.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+}
 function bottomnav(active){
   var tp = totalPending();
   return '<div class="bottomnav">'
-    + '<button class="navbtn '+(active==='home'?'active':'')+'" data-action="go:home">&#127968;<span>Home</span></button>'
+    + '<button class="navbtn '+(active==='home'?'active':'')+'" data-action="go:home">'+iconHomeNav()+'<span>Home</span></button>'
     + '<button class="navbtn '+(active==='review'?'active':'')+'" data-action="go:review">'
     + (tp>0 ? '<span class="navbadge">'+tp+'</span>' : '')
-    + '&#128203;<span>Review</span></button>'
+    + iconReviewNav()+'<span>Review</span></button>'
     + '</div>';
 }
 
@@ -364,7 +370,7 @@ function bottomnav(active){
 --------------------------------------------------------------------- */
 function screenNfcScan(){
   var chips = db.patients.map(function(t){
-    return '<button class="chipbtn" data-action="scanpatient:'+t.id+'"><div class="avatar" style="width:32px;height:32px;font-size:12px;">'+initials(t.name)+'</div><div style="flex:1;"><div style="font-weight:700; font-size:13px;">'+esc(t.name)+'</div><div style="font-size:11px; color:var(--ink-soft);">'+esc(t.room)+'</div></div><span style="color:var(--ink-faint);">'+iconNfc()+'</span></button>';
+    return '<button class="chipbtn" data-action="scanpatient:'+t.id+'"><div class="avatar" style="width:32px;height:32px;font-size:12px;">'+initials(t.name)+'</div><div style="flex:1;"><div style="font-weight:600; font-size:16px;">'+esc(t.name)+'</div><div style="font-size:12px; color:var(--ink-soft);">'+esc(t.room)+'</div></div><span style="color:var(--ink-faint);">'+iconNfc()+'</span></button>';
   }).join('');
   return '<div class="screenbody">'
     + '<div class="center-flow">'
@@ -518,7 +524,7 @@ function screenReview(){
     });
     var itemsHtml = sorted.map(itemHtml).join('');
     return '<div class="patientblock">'
-      + '<div class="patientblock-head"><div class="avatar" style="width:28px;height:28px;font-size:11px;">'+initials(p.name)+'</div><div><div class="pname">'+esc(p.name)+'</div><div class="pmeta">'+esc(p.room)+'</div></div></div>'
+      + '<div class="patientblock-head"><div class="avatar" style="width:28px;height:28px;font-size:12px;">'+initials(p.name)+'</div><div><div class="pname">'+esc(p.name)+'</div><div class="pmeta">'+esc(p.room)+'</div></div></div>'
       + '<div class="patientblock-items">'+itemsHtml+'</div>'
       + '</div>';
   }).join('');
