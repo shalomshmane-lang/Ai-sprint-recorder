@@ -327,7 +327,7 @@ function screenHome(){
     + '<div><div class="app-title">My Shift</div><div class="app-sub">'+esc(db.profile.name||'')+' · '+db.patients.length+' patients</div></div>'
     + bgpill()
     + '</div>'
-    + '<div class="screenbody" style="padding-top:10px;">'
+    + '<div class="screenbody" style="padding-top:14px;">'
     + '<div class="section-label">Active patients</div>'
     + rows
     + '<div class="section-label" style="margin-top:6px;">Assign new patient</div>'

@@ -63,13 +63,13 @@ body{
 .screenbody{
   flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch;
   min-height:0;
-  padding:18px 18px 24px;
-  display:flex; flex-direction:column; gap:14px;
+  padding:28px 24px 36px;
+  display:flex; flex-direction:column; gap:20px;
 }
 
 .app-header{
   display:flex; justify-content:space-between; align-items:center;
-  padding:16px 18px 0;
+  padding:28px 24px 0;
   flex:none;
 }
 .app-title{font-family:var(--font-display); font-weight:700; font-size:20px; letter-spacing:-0.01em;}
@@ -162,8 +162,8 @@ body{
 .dropdown-check{color:var(--accent); font-size:12px; flex:none;}
 
 .permrow{
-  display:flex; align-items:center; gap:12px;
-  background:var(--surface); border:1px solid var(--line-soft); border-radius:12px; padding:12px 14px;
+  display:flex; align-items:center; gap:14px;
+  background:var(--surface); border:1px solid var(--line-soft); border-radius:12px; padding:18px;
   box-shadow:var(--card-shadow);
 }
 .permrow .ic{
@@ -187,12 +187,12 @@ body{
 .infobanner{
   display:flex; gap:10px; align-items:flex-start;
   background:var(--warn-soft); color:var(--warn);
-  border-radius:12px; padding:11px 13px; font-size:16px; line-height:1.5;
+  border-radius:12px; padding:16px 18px; font-size:16px; line-height:1.5;
 }
 
 .patientcard{
-  display:flex; align-items:center; gap:12px;
-  padding:13px 14px;
+  display:flex; align-items:center; gap:14px;
+  padding:18px;
   background:var(--surface); border:1px solid var(--line-soft); border-radius:14px;
   box-shadow:var(--card-shadow);
   cursor:pointer; transition:box-shadow .12s;
@@ -225,8 +225,8 @@ body{
 }
 
 .fab-row{
-  flex:none; display:flex; flex-direction:column; align-items:center; gap:8px;
-  padding:14px 18px 10px;
+  flex:none; display:flex; flex-direction:column; align-items:center; gap:12px;
+  padding:20px 22px 18px;
 }
 .fab{
   width:64px; height:64px; border-radius:50%;
@@ -241,8 +241,8 @@ body{
 
 .bottomnav{flex:none; display:flex; border-top:1px solid var(--line); background:var(--surface);}
 .navbtn{
-  flex:1; display:flex; flex-direction:column; align-items:center; gap:3px;
-  padding:10px 4px 12px; background:none; border:none; cursor:pointer;
+  flex:1; display:flex; flex-direction:column; align-items:center; gap:4px;
+  padding:16px 4px 18px; background:none; border:none; cursor:pointer;
   color:var(--ink-faint); font-size:12px; position:relative;
 }
 .navbtn.active{color:var(--accent); font-weight:600;}
@@ -255,8 +255,8 @@ body{
 }
 
 .center-flow{
-  flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px;
-  text-align:center; padding:20px;
+  flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:20px;
+  text-align:center; padding:28px;
 }
 .scan-ring{
   width:120px; height:120px; border-radius:50%;
@@ -269,10 +269,10 @@ body{
 @keyframes spin{ to{ transform:rotate(360deg); } }
 
 .chipbtn{
-  display:flex; align-items:center; gap:10px; width:100%;
+  display:flex; align-items:center; gap:12px; width:100%;
   background:var(--surface); border:1px solid var(--line-soft); border-radius:13px;
   box-shadow:var(--card-shadow);
-  padding:12px 14px; cursor:pointer; text-align:left;
+  padding:16px 18px; cursor:pointer; text-align:left;
   transition:box-shadow .12s;
 }
 .chipbtn:hover{box-shadow:var(--card-shadow-hover);}
@@ -340,15 +340,15 @@ body{
 }
 
 .ethics-note{
-  display:flex; gap:8px; align-items:flex-start; text-align:left;
+  display:flex; gap:10px; align-items:flex-start; text-align:left;
   background:var(--surface-alt); color:var(--ink-soft);
-  border-radius:12px; padding:11px 13px; font-size:16px; line-height:1.5;
+  border-radius:12px; padding:16px 18px; font-size:16px; line-height:1.5;
   max-width:32ch;
 }
 
 .live-transcript{
   min-height:64px; width:100%;
-  background:var(--surface-alt); border-radius:12px; padding:12px 14px;
+  background:var(--surface-alt); border-radius:12px; padding:16px 18px;
   font-size:16px; line-height:1.5; text-align:left;
   color:var(--ink);
 }
@@ -358,7 +358,7 @@ body{
 .warnbanner{
   display:flex; gap:10px; align-items:flex-start;
   background:var(--critical-soft); color:var(--critical);
-  border-radius:12px; padding:12px 14px; font-size:16px; line-height:1.5;
+  border-radius:12px; padding:16px 18px; font-size:16px; line-height:1.5;
   text-align:left;
 }
 .warnbanner b{display:block; font-size:16px; margin-bottom:2px;}
@@ -372,17 +372,17 @@ body{
 
 .patientblock{border:1px solid var(--line-soft); border-radius:16px; overflow:hidden; box-shadow:var(--card-shadow);}
 .patientblock-head{
-  display:flex; align-items:center; gap:10px;
-  background:var(--surface-alt); padding:10px 14px;
+  display:flex; align-items:center; gap:12px;
+  background:var(--surface-alt); padding:16px 18px;
 }
 .patientblock-head .pname{font-family:var(--font-display); font-weight:600; font-size:16px;}
 .patientblock-head .pmeta{font-size:12px; color:var(--ink-soft);}
-.patientblock-items{display:flex; flex-direction:column; padding:10px; gap:10px;}
+.patientblock-items{display:flex; flex-direction:column; padding:16px; gap:14px;}
 
 .item{
-  border:1px solid var(--line-soft); border-radius:12px; padding:12px;
+  border:1px solid var(--line-soft); border-radius:12px; padding:18px;
   box-shadow:var(--card-shadow);
-  display:flex; flex-direction:column; gap:9px; background:var(--surface);
+  display:flex; flex-direction:column; gap:10px; background:var(--surface);
 }
 .item.rx{border-color:#DED0F2; background:linear-gradient(180deg, var(--rx-soft), var(--surface) 55%);}
 .item.uncertain{border-color:#F0D9AE; background:linear-gradient(180deg, var(--warn-soft), var(--surface) 55%);}
@@ -424,7 +424,7 @@ body{
 .modal-overlay{position:fixed; inset:0; background:rgba(10,14,13,0.45); display:flex; align-items:flex-end; justify-content:center; z-index:20;}
 .modal{
   width:100%; max-width:480px; background:var(--surface); border-radius:22px 22px 0 0;
-  padding:18px 18px 22px; display:flex; flex-direction:column; gap:12px;
+  padding:24px 24px 32px; display:flex; flex-direction:column; gap:16px;
   max-height:88vh; overflow-y:auto;
 }
 .modal-handle{width:36px; height:4px; border-radius:3px; background:var(--line); margin:0 auto 4px;}
