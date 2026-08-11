@@ -1,11 +1,15 @@
 :root{
   --bg:#F3F5F4;
+  --page-bg:#FBFAF8;
   --surface:#FFFFFF;
   --surface-alt:#EBF0EF;
   --ink:#12191B;
   --ink-soft:#55666B;
   --ink-faint:#8A9A9A;
   --line:#DCE3E2;
+  --line-soft:rgba(18,25,27,0.06);
+  --card-shadow:0 1px 2px rgba(18,25,27,0.04);
+  --card-shadow-hover:0 6px 18px -6px rgba(18,25,27,0.18);
   --accent:#1F6F6B;
   --accent-ink:#0F4744;
   --accent-soft:#DCEEEC;
@@ -41,7 +45,7 @@ body{
   width:100%;
   max-width:480px;
   min-height:100dvh;
-  background:var(--surface);
+  background:var(--page-bg);
   display:flex;
   flex-direction:column;
 }
@@ -111,8 +115,9 @@ body{
 .field label{font-size:11.5px; font-weight:600; color:var(--ink-soft);}
 .field input, .field textarea, .field select{
   font-family:var(--font-body); font-size:14px;
-  border:1.5px solid var(--line); border-radius:10px;
+  border:1.5px solid var(--line-soft); border-radius:10px;
   padding:11px 12px; color:var(--ink); background:var(--surface);
+  box-shadow:var(--card-shadow);
 }
 .field textarea{resize:none; min-height:90px; line-height:1.5;}
 .field input.missing{border-color:var(--warn); background:var(--warn-soft);}
@@ -122,12 +127,13 @@ body{
 .dropdown{position:relative;}
 .dropdown-trigger{
   width:100%; font-family:var(--font-body); font-size:14px;
-  border:1.5px solid var(--line); border-radius:10px;
+  border:1.5px solid var(--line-soft); border-radius:10px;
   padding:11px 20px; color:var(--ink); background:var(--surface);
+  box-shadow:var(--card-shadow);
   display:flex; align-items:center; justify-content:space-between; gap:10px;
   cursor:pointer; text-align:left; transition:border-color .12s, box-shadow .12s;
 }
-.dropdown-trigger:hover{border-color:var(--accent);}
+.dropdown-trigger:hover{box-shadow:var(--card-shadow-hover);}
 .dropdown.open .dropdown-trigger{
   border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft);
   border-bottom-left-radius:0; border-bottom-right-radius:0;
@@ -157,7 +163,8 @@ body{
 
 .permrow{
   display:flex; align-items:center; gap:12px;
-  background:var(--surface-alt); border-radius:12px; padding:12px 14px;
+  background:var(--surface); border:1px solid var(--line-soft); border-radius:12px; padding:12px 14px;
+  box-shadow:var(--card-shadow);
 }
 .permrow .ic{
   width:36px; height:36px; border-radius:10px;
@@ -186,10 +193,11 @@ body{
 .patientcard{
   display:flex; align-items:center; gap:12px;
   padding:13px 14px;
-  background:var(--surface); border:1px solid var(--line); border-radius:14px;
-  cursor:pointer; transition:border-color .12s;
+  background:var(--surface); border:1px solid var(--line-soft); border-radius:14px;
+  box-shadow:var(--card-shadow);
+  cursor:pointer; transition:box-shadow .12s;
 }
-.patientcard:hover{border-color:var(--accent);}
+.patientcard:hover{box-shadow:var(--card-shadow-hover);}
 .avatar{
   width:42px; height:42px; border-radius:50%;
   background:var(--accent-soft); color:var(--accent-ink);
@@ -262,10 +270,12 @@ body{
 
 .chipbtn{
   display:flex; align-items:center; gap:10px; width:100%;
-  background:var(--surface); border:1.5px solid var(--line); border-radius:13px;
+  background:var(--surface); border:1px solid var(--line-soft); border-radius:13px;
+  box-shadow:var(--card-shadow);
   padding:12px 14px; cursor:pointer; text-align:left;
+  transition:box-shadow .12s;
 }
-.chipbtn:hover{border-color:var(--accent);}
+.chipbtn:hover{box-shadow:var(--card-shadow-hover);}
 
 .mic-btn{
   width:96px; height:96px; border-radius:50%;
@@ -284,6 +294,57 @@ body{
   display:flex; align-items:center;
 }
 .rec-indicator.live{background:var(--critical); color:#fff;}
+
+.rec-patientpill{
+  display:inline-flex; align-items:center; gap:8px;
+  background:var(--accent-soft); color:var(--accent-ink);
+  padding:8px 16px; border-radius:100px;
+  font-family:var(--font-display); font-weight:600; font-size:13.5px;
+}
+.rec-status{
+  display:flex; align-items:center; gap:7px;
+  font-family:var(--font-display); font-weight:700; font-size:13.5px;
+  color:var(--ink-faint);
+}
+.rec-status .rec-dot{
+  width:8px; height:8px; border-radius:50%; background:var(--ink-faint);
+}
+.rec-status.live{color:var(--critical);}
+.rec-status.live .rec-dot{background:var(--critical); animation:pulse 1s infinite;}
+
+.rec-waveform{
+  display:flex; align-items:center; justify-content:center; gap:3px;
+  height:64px; width:100%;
+}
+.rec-waveform .wave-bar{
+  width:3px; min-height:6px; height:6px; border-radius:3px;
+  background:var(--line);
+  transition:background-color .2s;
+}
+.rec-waveform.live .wave-bar{
+  background:var(--accent);
+  animation:wavebounce 1.1s ease-in-out infinite;
+}
+@keyframes wavebounce{
+  0%,100%{ height:8px; }
+  50%{ height:52px; }
+}
+
+.rec-timer{
+  font-family:var(--font-display); font-weight:600; font-size:34px;
+  color:var(--ink); font-variant-numeric:tabular-nums; letter-spacing:0.02em;
+}
+
+.stop-square{
+  display:block; width:26px; height:26px; border-radius:6px; background:#fff;
+}
+
+.ethics-note{
+  display:flex; gap:8px; align-items:flex-start; text-align:left;
+  background:var(--surface-alt); color:var(--ink-soft);
+  border-radius:12px; padding:11px 13px; font-size:12px; line-height:1.5;
+  max-width:32ch;
+}
 
 .live-transcript{
   min-height:64px; width:100%;
@@ -309,7 +370,7 @@ body{
 }
 @keyframes buzz{ 0%,100%{transform:rotate(0);} 25%{transform:rotate(-8deg);} 75%{transform:rotate(8deg);} }
 
-.patientblock{border:1px solid var(--line); border-radius:16px; overflow:hidden;}
+.patientblock{border:1px solid var(--line-soft); border-radius:16px; overflow:hidden; box-shadow:var(--card-shadow);}
 .patientblock-head{
   display:flex; align-items:center; gap:10px;
   background:var(--surface-alt); padding:10px 14px;
@@ -319,7 +380,8 @@ body{
 .patientblock-items{display:flex; flex-direction:column; padding:10px; gap:10px;}
 
 .item{
-  border:1px solid var(--line); border-radius:12px; padding:12px;
+  border:1px solid var(--line-soft); border-radius:12px; padding:12px;
+  box-shadow:var(--card-shadow);
   display:flex; flex-direction:column; gap:9px; background:var(--surface);
 }
 .item.rx{border-color:#DED0F2; background:linear-gradient(180deg, var(--rx-soft), var(--surface) 55%);}

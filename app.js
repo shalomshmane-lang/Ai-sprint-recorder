@@ -188,6 +188,21 @@ var micPermission = 'unknown'; // unknown | granted | denied
 var recognition = null;
 var finalTranscript = '';
 var recognitionActive = false;
+var recTimerInterval = null;
+var recStartedAt = null;
+
+function formatElapsed(ms){
+  var totalSec = Math.floor(ms/1000);
+  var mm = String(Math.floor(totalSec/60)).padStart(2,'0');
+  var ss = String(totalSec%60).padStart(2,'0');
+  return mm+':'+ss;
+}
+
+function waveformBars(){
+  var out = '';
+  for(var i=0;i<28;i++){ out += '<span class="wave-bar" style="animation-delay:'+(i*0.07)+'s"></span>'; }
+  return out;
+}
 
 /* ---------------------------------------------------------------------
    Session (non-persisted) state
@@ -212,6 +227,8 @@ function iconMic(){ return '&#127908;'; }
 function iconNfc(){ return '&#128246;'; }
 function iconBg(){ return '&#8635;'; }
 function iconBell(){ return '&#128276;'; }
+function iconPerson(){ return '&#128100;'; }
+function iconInfo(){ return '&#8505;&#65039;'; }
 
 function bgpill(){ return '<div class="bgpill"><span class="dot"></span>Background active</div>'; }
 
@@ -403,12 +420,14 @@ function screenRecording(){
 
   return '<div class="screenbody">'
     + '<div class="center-flow">'
-    + '<div class="rec-indicator" id="rec-indicator">&#9679; Press and hold to record</div>'
-    + '<div class="app-title">'+esc(p.name)+'</div>'
-    + '<div class="app-sub">'+esc(p.room)+'</div>'
-    + '<button class="mic-btn" id="mic-btn">'+iconMic()+'</button>'
+    + '<div class="rec-patientpill">'+iconPerson()+'<span>'+esc(p.name)+' · '+esc(p.room)+'</span></div>'
+    + '<div class="rec-status" id="rec-indicator"><span class="rec-dot"></span><span id="rec-status-text">Ready to record</span></div>'
+    + '<div class="rec-waveform" id="rec-waveform">'+waveformBars()+'</div>'
+    + '<div class="rec-timer" id="rec-timer">00:00</div>'
+    + '<button class="mic-btn" id="mic-btn"><span id="mic-icon">'+iconMic()+'</span></button>'
+    + '<div class="app-sub" id="rec-hint">Press and hold the microphone to record.</div>'
+    + '<div class="ethics-note">'+iconInfo()+' Record only your own voice — avoid capturing conversations with patients or family members.</div>'
     + '<div class="live-transcript empty" id="live-transcript">Transcript will appear here as you speak…</div>'
-    + '<div class="app-sub" style="max-width:32ch;">Press and hold the microphone to record, release to finish.</div>'
     + '<button class="btn btn-ghost btn-block" data-action="go:home">Cancel</button>'
     + '</div></div>';
 }
@@ -833,9 +852,26 @@ function startRecognition(){
     recognition.start();
     recognitionActive = true;
     var indicator = document.getElementById('rec-indicator');
-    if(indicator){ indicator.textContent = '● Recording — release to finish'; indicator.classList.add('live'); }
+    if(indicator){ indicator.classList.add('live'); }
+    var statusText = document.getElementById('rec-status-text');
+    if(statusText){ statusText.textContent = 'Recording'; }
+    var hint = document.getElementById('rec-hint');
+    if(hint){ hint.textContent = 'Release the microphone to finish.'; }
+    var waveform = document.getElementById('rec-waveform');
+    if(waveform){ waveform.classList.add('live'); }
     var btn = document.getElementById('mic-btn');
     if(btn){ btn.classList.add('live'); }
+    var micIcon = document.getElementById('mic-icon');
+    if(micIcon){ micIcon.innerHTML = '<span class="stop-square"></span>'; }
+
+    recStartedAt = Date.now();
+    var timerEl = document.getElementById('rec-timer');
+    if(timerEl){ timerEl.textContent = '00:00'; }
+    if(recTimerInterval) clearInterval(recTimerInterval);
+    recTimerInterval = setInterval(function(){
+      var t = document.getElementById('rec-timer');
+      if(t) t.textContent = formatElapsed(Date.now() - recStartedAt);
+    }, 250);
   }catch(e){
     state.useManualEntry = true;
     render();
@@ -856,6 +892,7 @@ function updateLiveTranscript(finalText, interimText){
 }
 
 function stopRecognitionIfActive(){
+  if(recTimerInterval){ clearInterval(recTimerInterval); recTimerInterval = null; }
   if(recognition && recognitionActive){
     try{ recognition.stop(); }catch(e){}
   }
