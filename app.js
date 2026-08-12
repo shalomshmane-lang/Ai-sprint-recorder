@@ -8,7 +8,7 @@ var STORAGE_KEY = 'retsef_v2_en';
 
 function seedData(){
   return {
-    profile: { name:'', role:'', onboarded:false },
+    profile: { name:'', role:'' },
     patients: [
       {
         id:'p1', name:'Emma Carter', room:'Room 3 · Bed 2', age:'Age 4',
@@ -184,7 +184,6 @@ function esc(s){
 var SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition || null;
 var recognitionSupported = !!SpeechRecognitionAPI;
 var RECOGNITION_LANG = 'en-US';
-var micPermission = 'unknown'; // unknown | granted | denied
 var recognition = null;
 var finalTranscript = '';
 var recognitionActive = false;
@@ -208,7 +207,7 @@ function waveformBars(){
    Session (non-persisted) state
 --------------------------------------------------------------------- */
 var state = {
-  screen: db.profile.onboarded ? 'home' : 'onboard-1',
+  screen: 'home',
   scanValid:false,
   activePatientId:null,
   toast:null,
@@ -216,8 +215,7 @@ var state = {
   editBuffer:null,
   newItemIds:[],
   useManualEntry:!recognitionSupported,
-  manualText:'',
-  roleDropdownOpen:false
+  manualText:''
 };
 
 /* ---------------------------------------------------------------------
@@ -233,84 +231,6 @@ function iconInfo(){ return '&#8505;&#65039;'; }
 function bgpill(){ return '<div class="bgpill"><span class="dot"></span>Background active</div>'; }
 
 /* ---------------------------------------------------------------------
-   Screens: onboarding
---------------------------------------------------------------------- */
-var ROLE_OPTIONS = ['Resident Physician','Attending Physician','Nurse'];
-
-function roleDropdown(){
-  var current = db.profile.role || ROLE_OPTIONS[0];
-  var open = state.roleDropdownOpen;
-  var options = ROLE_OPTIONS.map(function(r, i){
-    var selected = r === db.profile.role;
-    return '<div class="dropdown-option'+(selected?' selected':'')+'" data-action="select-role:'+i+'">'
-      + '<span>'+esc(r)+'</span>'
-      + (selected ? '<span class="dropdown-check">&#10003;</span>' : '')
-      + '</div>';
-  }).join('');
-  return '<div class="dropdown'+(open?' open':'')+'">'
-    + '<button type="button" class="dropdown-trigger" data-action="toggle-role-dropdown">'
-      + '<span>'+esc(current)+'</span>'
-      + '<span class="dropdown-arrow"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3.5 5.25L7 8.75L10.5 5.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>'
-    + '</button>'
-    + (open ? '<div class="dropdown-list">'+options+'</div>' : '')
-    + '</div>';
-}
-
-function screenOnboard1(){
-  return '<div class="screenbody" style="background:linear-gradient(180deg, var(--accent-soft) 0%, var(--surface) 55%);">'
-    + '<div class="center-flow" style="height:100%;">'
-    + '<div style="font-family:var(--font-display); font-weight:700; font-size:44px; color:var(--accent);">TapTalk</div>'
-    + '<div class="app-sub" style="max-width:32ch;">Tap. Talk. Confirm</div>'
-    + '<div class="field" style="width:100%;"><label>Full name</label><input id="onb-name" value="'+esc(db.profile.name)+'" placeholder="e.g. Dr. Sam Rivera"></div>'
-    + '<div class="field" style="width:100%;"><label>Role</label>'+roleDropdown()+'</div>'
-    + '<button class="btn btn-primary btn-block" data-action="onboard1-continue">Continue to permissions</button>'
-    + '</div></div>';
-}
-
-function screenOnboard2(){
-  var micRow;
-  if(micPermission==='granted'){
-    micRow = permRow(iconMic(),'Microphone','Granted', 'ok');
-  } else if(micPermission==='denied'){
-    micRow = permRow(iconMic(),'Microphone','Denied — recording will fall back to manual typing', 'bad');
-  } else {
-    micRow = permRow(iconMic(),'Microphone','Required to transcribe spoken notes', 'pending');
-  }
-  var speechNote = recognitionSupported
-    ? ''
-    : '<div class="infobanner">&#9888; This browser does not support automatic speech recognition. You can continue — recording will use manual typing instead.</div>';
-
-  return '<div class="screenbody">'
-    + '<div class="app-title">Permissions for this shift</div>'
-    + '<div class="app-sub">Recording needs these permissions. On a real phone, running in the background while locked requires a native app — here, recording works while this app is open.</div>'
-    + micRow
-    + permRow(iconNfc(),'NFC reader','Simulated in this prototype', 'pending')
-    + permRow(iconBg(),'Background activity','Limited in a browser — works while the app stays open', 'pending')
-    + permRow(iconBell(),'Notifications','For pending-note alerts (simulated)', 'pending')
-    + speechNote
-    + '<div style="flex:1"></div>'
-    + (micPermission==='unknown'
-        ? '<button class="btn btn-primary btn-block" data-action="request-mic">Request microphone access</button>'
-          + '<button class="btn btn-ghost btn-block" data-action="go:onboard-3">Skip for now</button>'
-        : '<button class="btn btn-primary btn-block" data-action="go:onboard-3">Continue</button>')
-    + '</div>';
-}
-function permRow(ic,title,sub,statusCls){
-  var mark = statusCls==='ok' ? '&#10003;' : (statusCls==='bad' ? '&#10005;' : '&#8230;');
-  return '<div class="permrow"><div class="ic">'+ic+'</div><div class="tx"><b>'+title+'</b><span>'+sub+'</span></div><div class="check '+(statusCls==='ok'?'':(statusCls==='bad'?'bad':'pending'))+'">'+mark+'</div></div>';
-}
-
-function screenOnboard3(){
-  return '<div class="screenbody">'
-    + '<div class="center-flow" style="height:100%;">'
-    + '<div class="check" style="width:64px; height:64px; font-size:28px;">&#10003;</div>'
-    + '<div class="app-title">Shift active</div>'
-    + '<div class="app-sub" style="max-width:32ch;">'+esc(db.profile.name||'')+', '+esc(db.profile.role||'')+'. Ready to go.</div>'
-    + '<button class="btn btn-primary btn-block" style="margin-top:10px;" data-action="onboard3-finish">Go to patient list</button>'
-    + '</div></div>';
-}
-
-/* ---------------------------------------------------------------------
    Screens: home
 --------------------------------------------------------------------- */
 function screenHome(){
@@ -324,7 +244,7 @@ function screenHome(){
   }).join('');
 
   return '<div class="app-header">'
-    + '<div><div class="app-title">My Shift</div><div class="app-sub">'+esc(db.profile.name||'')+' · '+db.patients.length+' patients</div></div>'
+    + '<div><div class="app-title">My Shift</div><div class="app-sub">'+(db.profile.name?esc(db.profile.name)+' · ':'')+db.patients.length+' patients</div></div>'
     + bgpill()
     + '</div>'
     + '<div class="screenbody" style="padding-top:14px;">'
@@ -586,9 +506,6 @@ function fieldInput(key,label,val,isMissing){
    Router
 --------------------------------------------------------------------- */
 function screenFor(id){
-  if(id==='onboard-1') return screenOnboard1();
-  if(id==='onboard-2') return screenOnboard2();
-  if(id==='onboard-3') return screenOnboard3();
   if(id==='home') return screenHome();
   if(id==='nfc-scan') return screenNfcScan();
   if(id==='nfc-success') return screenNfcSuccess();
@@ -642,54 +559,13 @@ function bind(){
   if(manualBox){
     manualBox.addEventListener('input', function(){ state.manualText = manualBox.value; });
   }
-  if(state.roleDropdownOpen){
-    setTimeout(function(){
-      document.addEventListener('click', closeRoleDropdownOnOutsideClick, {once:true});
-    }, 0);
-  }
-}
-
-function closeRoleDropdownOnOutsideClick(e){
-  var dd = document.querySelector('.dropdown');
-  if(dd && !dd.contains(e.target)){
-    state.roleDropdownOpen = false;
-    render();
-  }
 }
 
 function handleAction(action){
   var parts = action.split(':');
   var cmd = parts[0], arg1 = parts[1], arg2 = parts[2];
 
-  if(cmd==='onboard1-continue'){
-    var nameEl = document.getElementById('onb-name');
-    db.profile.name = nameEl ? nameEl.value.trim() : db.profile.name;
-    saveData();
-    state.screen = 'onboard-2';
-  }
-
-  else if(cmd==='toggle-role-dropdown'){
-    state.roleDropdownOpen = !state.roleDropdownOpen;
-  }
-
-  else if(cmd==='select-role'){
-    db.profile.role = ROLE_OPTIONS[arg1];
-    state.roleDropdownOpen = false;
-    saveData();
-  }
-
-  else if(cmd==='request-mic'){
-    requestMicPermission();
-    return;
-  }
-
-  else if(cmd==='onboard3-finish'){
-    db.profile.onboarded = true;
-    saveData();
-    state.screen = 'home';
-  }
-
-  else if(cmd==='go'){
+  if(cmd==='go'){
     state.toast = null;
     state.screen = arg1;
   }
@@ -779,29 +655,6 @@ function openEdit(itemId){
     state.editBuffer = { text: it.text };
   }
   render();
-}
-
-/* ---------------------------------------------------------------------
-   Microphone permission (onboarding)
---------------------------------------------------------------------- */
-function requestMicPermission(){
-  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
-    micPermission = 'denied';
-    state.screen = 'onboard-2';
-    render();
-    return;
-  }
-  navigator.mediaDevices.getUserMedia({ audio:true }).then(function(stream){
-    micPermission = 'granted';
-    stream.getTracks().forEach(function(t){ t.stop(); });
-    state.screen = 'onboard-2';
-    render();
-  }).catch(function(){
-    micPermission = 'denied';
-    state.useManualEntry = true;
-    state.screen = 'onboard-2';
-    render();
-  });
 }
 
 /* ---------------------------------------------------------------------
