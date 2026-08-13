@@ -487,13 +487,16 @@ function screenConfirmPatient(){
 }
 
 // The next unresolved item for each patient's Note Review walk-through,
-// in the order the items were created (state.newItemIds). Resolved items
-// (confirmed or discarded) simply drop out of this list, so the "first"
-// entry is always whichever card should be open right now.
+// in creation order, read straight from storage (not state.newItemIds,
+// which is session-only and would be empty after a reload) so this screen
+// is safe to resume from anywhere, any time. Resolved items (confirmed or
+// discarded) simply drop out of this list, so the "first" entry is always
+// whichever card should be open right now.
 function pendingReviewNoteItems(){
-  return state.newItemIds
-    .map(findItem)
-    .filter(function(it){ return it && it.patientId===DEMO_REVIEW_NOTE_PATIENT_ID && it.status==='pending'; });
+  var p = getPatient(DEMO_REVIEW_NOTE_PATIENT_ID);
+  if(!p) return [];
+  return p.items.filter(function(it){ return it.status==='pending'; })
+    .sort(function(a,b){ return (a.createdAt||0)-(b.createdAt||0); });
 }
 
 function reviewNoteTypePill(it){
@@ -652,7 +655,25 @@ function itemHtml(it, hideActions){
    Screens: review + edit
 --------------------------------------------------------------------- */
 function screenReview(){
-  var blocks = db.patients.map(function(p){
+  // Emma Johnson's items are only ever handled through the dedicated
+  // Note Review walkthrough (its own gating and one-at-a-time flow) -
+  // never listed here, so there's exactly one place her prescriptions
+  // can get confirmed. If she has anything pending, surface a way back
+  // into that screen instead.
+  var reviewNotePending = pendingReviewNoteItems();
+  var reviewNoteBanner = '';
+  if(reviewNotePending.length > 0){
+    var ejp = getPatient(DEMO_REVIEW_NOTE_PATIENT_ID);
+    reviewNoteBanner = '<button class="patientblock review-note-banner" data-action="go:review-note">'
+      + '<div class="patientblock-head">'
+        + '<div class="avatar" style="background:var(--warn-soft); color:var(--warn);">'+initials(ejp.name)+'</div>'
+        + '<div><div class="pname">'+esc(ejp.name)+'</div><div class="pmeta">'+reviewNotePending.length+' item'+(reviewNotePending.length===1?'':'s')+' awaiting review</div></div>'
+        + '<span class="count-pill">'+reviewNotePending.length+'</span>'
+      + '</div>'
+      + '</button>';
+  }
+
+  var blocks = db.patients.filter(function(p){ return p.id !== DEMO_REVIEW_NOTE_PATIENT_ID; }).map(function(p){
     var pending = p.items.filter(function(i){return i.status==='pending';});
     var recentConfirmed = p.items.filter(function(i){return i.status==='confirmed';})
       .sort(function(a,b){ return (b.createdAt||0)-(a.createdAt||0); }).slice(0,1);
@@ -670,7 +691,7 @@ function screenReview(){
       + '</div>';
   }).join('');
 
-  if(!blocks.replace(/\s/g,'')) blocks = '<div class="empty">No pending items right now</div>';
+  if(!blocks.replace(/\s/g,'') && !reviewNoteBanner) blocks = '<div class="empty">No pending items right now</div>';
 
   var toastHtml = state.toast ? '<div class="toast">'+esc(state.toast)+'</div>' : '';
 
@@ -678,6 +699,7 @@ function screenReview(){
     + toastHtml
     + '<div class="app-title">Review</div>'
     + '<div class="app-sub">Grouped by patient · prescriptions always shown first in each block</div>'
+    + reviewNoteBanner
     + blocks
     + '</div>'
     + bottomnav('review');
@@ -1095,7 +1117,8 @@ function proceedWithClassification(rawText){
   setTimeout(function(){
     var results = classifyTranscript(rawText);
     var newIds = [];
-    results.forEach(function(r){
+    var baseCreatedAt = Date.now();
+    results.forEach(function(r, i){
       var item = {
         id: uid('n'),
         patientId: state.activePatientId,
@@ -1105,7 +1128,11 @@ function proceedWithClassification(rawText){
         fields: r.fields,
         missing: r.missing,
         time: nowLabel(),
-        createdAt: Date.now()
+        // Items created in the same batch would otherwise share one
+        // timestamp, making createdAt-order ties unpredictable (e.g. for
+        // Note Review's sequential walkthrough) - offset by index so
+        // creation order is always recoverable from the data alone.
+        createdAt: baseCreatedAt + i
       };
       var p = getPatient(state.activePatientId);
       if(p){ p.items.unshift(item); newIds.push(item.id); }

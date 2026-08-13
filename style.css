@@ -319,6 +319,21 @@ body{
 .patientblock-head .pmeta{font-size:14px; color:var(--ink-soft);}
 .patientblock-items{display:flex; flex-direction:column; padding:16px; gap:14px;}
 
+.review-note-banner{
+  display:block; width:100%; text-align:left;
+  background:var(--surface); border:1px solid var(--line-soft); padding:0; cursor:pointer;
+  font:inherit; color:inherit;
+}
+.review-note-banner .patientblock-head{background:var(--surface);}
+.review-note-banner:active{opacity:0.85;}
+.count-pill{
+  min-width:26px; height:26px; padding:0 8px; margin-left:auto;
+  border-radius:100px; background:var(--warn); color:#fff;
+  font-family:var(--font-display); font-weight:600; font-size:13px;
+  display:flex; align-items:center; justify-content:center;
+  font-variant-numeric:tabular-nums; flex:none;
+}
+
 .icon-btn{
   flex:1; display:flex; align-items:center; justify-content:center;
   height:60px; border-radius:12px; cursor:pointer;
