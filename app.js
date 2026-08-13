@@ -162,7 +162,6 @@ function classifySegment(segment){
 // per the agreed breakdown instead of guessing.
 function scriptedReferenceClassification(){
   return [
-    { type:'note', text:'Stopping ceftriaxone.', fields:null, missing:null },
     { type:'prescription', text:null,
       fields:{ drug:'Piperacillin-Tazobactam (Pip-Tazo)', dose:'', route:'', frequency:'', duration:'', indication:'' },
       missing:['dose','route','frequency','duration','indication'] },
@@ -172,8 +171,9 @@ function scriptedReferenceClassification(){
     { type:'prescription', text:null,
       fields:{ drug:'Saline (IV bolus)', dose:'20 mL/kg', route:'', frequency:'', duration:'', indication:'' },
       missing:['route','frequency','duration','indication'] },
+    { type:'order', text:'Chest ultrasound — urgent, ordered today.', fields:null, missing:null },
     { type:'note',
-      text:'Patient Emma new fever thirty-nine one. Heart rate one sixty-eight. Urine output’s down to point six. And the drain’s dry since this morning. I suspect the drain’s blocked, not a new infection. Air entry on the right is down from yesterday, that fits with trapped fluid, not with a new source. We sent blood cultures, sent drain fluid. Ordered an urgent chest ultrasound for today.',
+      text:'Stopping ceftriaxone. Patient Emma new fever thirty-nine one. Heart rate one sixty-eight. Urine output’s down to point six. And the drain’s dry since this morning. I suspect the drain’s blocked, not a new infection. Air entry on the right is down from yesterday, that fits with trapped fluid, not with a new source. We sent blood cultures, sent drain fluid.',
       fields:null, missing:null }
   ];
 }
@@ -309,6 +309,7 @@ var state = {
   toast:null,
   editingItemId:null,
   editBuffer:null,
+  editSource:null,
   newItemIds:[],
   useManualEntry:!recognitionSupported,
   manualText:'',
@@ -485,24 +486,85 @@ function screenConfirmPatient(){
     + '</div>';
 }
 
+// The next unresolved item for each patient's Note Review walk-through,
+// in the order the items were created (state.newItemIds). Resolved items
+// (confirmed or discarded) simply drop out of this list, so the "first"
+// entry is always whichever card should be open right now.
+function pendingReviewNoteItems(){
+  return state.newItemIds
+    .map(findItem)
+    .filter(function(it){ return it && it.patientId===DEMO_REVIEW_NOTE_PATIENT_ID && it.status==='pending'; });
+}
+
+function reviewNoteTypePill(it){
+  if(it.type==='prescription') return '<span class="typepill rx">&#8478; Prescription</span>';
+  if(it.type==='order') return '<span class="typepill order">&#128253; Order</span>';
+  return '<span class="typepill note">Note</span>';
+}
+
+function reviewNoteCollapsedLabel(it){
+  if(it.type==='prescription') return (it.fields && it.fields.drug) || 'Prescription';
+  if(it.type==='order') return 'Imaging order';
+  return 'Note';
+}
+
+function reviewNoteCardHtml(it, isOpen){
+  var cls = 'item review-card' + (isOpen ? '' : ' collapsed');
+
+  if(!isOpen){
+    return '<div class="'+cls+'"><div class="item-top">'+reviewNoteTypePill(it)+'<span class="item-time">'+esc(reviewNoteCollapsedLabel(it))+'</span></div></div>';
+  }
+
+  var bodyHtml, canApprove;
+  if(it.type==='prescription'){
+    var f = it.fields || {};
+    var missing = it.missing || [];
+    var fld = function(key,label){
+      var isMissing = missing.indexOf(key)>-1;
+      var val = f[key] || (isMissing ? 'Needs completion' : '');
+      return '<div class="rxfield '+(isMissing?'missing':'')+'"><span class="flabel">'+label+'</span><span class="fval">'+esc(val)+'</span></div>';
+    };
+    bodyHtml = '<div class="rxgrid">'
+      + fld('drug','Drug') + fld('dose','Dose')
+      + fld('route','Route') + fld('frequency','Frequency')
+      + fld('duration','Duration') + fld('indication','Indication')
+      + '</div>';
+    canApprove = missing.length === 0;
+  } else {
+    bodyHtml = '<div class="item-text">'+esc(it.text)+'</div>';
+    canApprove = true;
+  }
+
+  return '<div class="'+cls+'">'
+    + '<div class="item-top">'+reviewNoteTypePill(it)+'</div>'
+    + bodyHtml
+    + '<div class="item-actions-icons">'
+      + '<button class="icon-btn critical" aria-label="Discard" data-action="rn-discard:'+it.id+'">'+iconTrash()+'</button>'
+      + '<button class="icon-btn" aria-label="Edit" data-action="rn-edit:'+it.id+'">'+iconPencil()+'</button>'
+      + '<button class="icon-btn ok'+(canApprove?'':' disabled')+'" aria-label="Approve"'+(canApprove?'':' title="Complete the missing fields first"')+' data-action="'+(canApprove?('rn-approve:'+it.id):'rn-edit:'+it.id)+'">'+iconCheck()+'</button>'
+    + '</div>'
+    + '</div>';
+}
+
 function screenReviewNote(){
   var p = getPatient(DEMO_REVIEW_NOTE_PATIENT_ID);
   if(!p) return screenReview();
   var roomMatch = p.room.match(/Room \d+/);
   var roomLabel = roomMatch ? roomMatch[0] : p.room;
-  var items = p.items.filter(function(it){ return state.newItemIds.indexOf(it.id) > -1; });
-  var noteHtml = items.map(function(it){ return itemHtml(it, true); }).join('');
-  var firstItemId = items.length ? items[0].id : '';
+  var pending = pendingReviewNoteItems();
+  var allDone = pending.length === 0;
+
+  var cardsHtml = pending.map(function(it, i){ return reviewNoteCardHtml(it, i===0); }).join('')
+    || '<div class="empty">All items reviewed.</div>';
+
+  var toastHtml = state.toast ? '<div class="toast">'+esc(state.toast)+'</div>' : '';
 
   return '<div class="screenbody">'
-    + '<div class="app-title">Review note</div>'
+    + toastHtml
+    + '<div class="app-title">Note review</div>'
     + '<div class="app-sub">'+esc(p.name)+' · '+esc(roomLabel)+' · Just now</div>'
-    + noteHtml
-    + '</div>'
-    + '<div class="note-actionbar">'
-      + '<button class="icon-btn critical" aria-label="Discard" data-action="note-discard">'+iconTrash()+'</button>'
-      + '<button class="icon-btn" aria-label="Edit" data-action="edit:'+firstItemId+'">'+iconPencil()+'</button>'
-      + '<button class="icon-btn primary" aria-label="Approve and file" data-action="approve-file">'+iconCheck()+'</button>'
+    + cardsHtml
+    + (allDone ? '<button class="btn btn-primary btn-block" data-action="rn-save-file">Save &amp; file</button>' : '')
     + '</div>';
 }
 
@@ -536,6 +598,16 @@ function itemHtml(it, hideActions){
       : '<div class="uncertain-choice">'
         + '<button class="btn btn-outline btn-sm" data-action="classify:'+it.id+':note">Mark as note</button>'
         + '<button class="btn btn-outline btn-sm" data-action="classify:'+it.id+':prescription">Mark as prescription</button>'
+        + '</div>';
+  } else if(it.type==='order'){
+    pillHtml = '<span class="typepill order">&#128253; Order</span>';
+    bodyHtml = '<div class="item-text">'+esc(it.text)+'</div>';
+    actionsHtml = it.status==='confirmed'
+      ? '<div class="rxnote" style="color:var(--ok);">&#10003; Filed</div>'
+      : '<div class="item-actions">'
+        + '<button class="btn btn-outline btn-sm" data-action="edit:'+it.id+'">Edit</button>'
+        + '<button class="btn btn-ghost btn-sm" data-action="reject:'+it.id+'">Discard</button>'
+        + '<button class="btn btn-primary btn-sm" data-action="confirm:'+it.id+'">Confirm & file</button>'
         + '</div>';
   } else if(it.type==='prescription'){
     pillHtml = '<span class="typepill rx">&#8478; Prescription</span>';
@@ -779,25 +851,26 @@ function handleAction(action){
     }
   }
 
-  else if(cmd==='approve-file'){
-    var p4 = getPatient(DEMO_REVIEW_NOTE_PATIENT_ID);
-    if(p4){
-      state.newItemIds.forEach(function(id){
-        var it = p4.items.find(function(i){ return i.id===id; });
-        if(it) it.status = 'confirmed';
-      });
+  else if(cmd==='rn-approve'){
+    var rnA = findItem(arg1);
+    if(rnA && (rnA.type!=='prescription' || (rnA.missing||[]).length===0)){
+      rnA.status = 'confirmed';
       saveData();
     }
-    state.toast = 'Approved and filed to the patient record';
-    state.screen = 'review';
   }
 
-  else if(cmd==='note-discard'){
+  else if(cmd==='rn-discard'){
     var p4d = getPatient(DEMO_REVIEW_NOTE_PATIENT_ID);
     if(p4d){
-      p4d.items = p4d.items.filter(function(i){ return state.newItemIds.indexOf(i.id) === -1; });
+      p4d.items = p4d.items.filter(function(i){ return i.id!==arg1; });
       saveData();
     }
+  }
+
+  else if(cmd==='rn-edit'){ openEdit(arg1, 'review-note'); return; }
+
+  else if(cmd==='rn-save-file'){
+    state.toast = 'Filed to the patient record';
     state.newItemIds = [];
     state.screen = 'home';
   }
@@ -818,7 +891,7 @@ function handleAction(action){
 
   else if(cmd==='edit'){ openEdit(arg1); return; }
 
-  else if(cmd==='closeedit'){ state.editingItemId=null; state.editBuffer=null; }
+  else if(cmd==='closeedit'){ state.editingItemId=null; state.editBuffer=null; state.editSource=null; }
 
   else if(cmd==='savedit'){
     var it4 = findItem(state.editingItemId);
@@ -829,18 +902,27 @@ function handleAction(action){
       } else {
         it4.text = state.editBuffer.text;
       }
+      // From the Note Review accordion, saving an edit is itself one of
+      // the three ways to resolve a card — but a prescription still isn't
+      // safe to file until every required field is actually filled in, so
+      // only auto-confirm (and so advance to the next card) once it's
+      // genuinely complete. An incomplete prescription just stays open.
+      if(state.editSource==='review-note' && (it4.type!=='prescription' || it4.missing.length===0)){
+        it4.status = 'confirmed';
+      }
       saveData();
     }
-    state.editingItemId=null; state.editBuffer=null;
+    state.editingItemId=null; state.editBuffer=null; state.editSource=null;
   }
 
   render();
 }
 
-function openEdit(itemId){
+function openEdit(itemId, source){
   var it = findItem(itemId);
   if(!it) return;
   state.editingItemId = itemId;
+  state.editSource = source || null;
   if(it.type==='prescription'){
     state.editBuffer = { fields: Object.assign({}, it.fields), missing: it.missing };
   } else {
@@ -1032,15 +1114,10 @@ function proceedWithClassification(rawText){
     state.newItemIds = newIds;
     state.scanValid = false;
 
-    // The single-note "review-note" screen only makes sense for exactly
-    // one plain note (its Approve action files everything with no
-    // per-item field gating). Anything richer than that — multiple items,
-    // or a prescription still missing required fields — needs the full
-    // review screen instead, for either patient, so a prescription can
-    // never get filed without its required fields being completed.
-    var useReviewNoteScreen = isEmmaJohnsonDemo && results.length === 1 && results[0].type !== 'prescription';
-
-    if(useReviewNoteScreen){
+    // The Note Review screen walks its own items one at a time and gates
+    // its own Approve action on missing required fields per card, so it's
+    // safe for any mix of content — always used for this patient.
+    if(isEmmaJohnsonDemo){
       state.screen = 'review-note';
       render();
       return;
