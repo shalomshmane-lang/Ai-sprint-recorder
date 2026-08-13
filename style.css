@@ -358,6 +358,10 @@ body{
 .item.new{box-shadow:0 0 0 3px var(--accent-soft);}
 .item.confirmed{opacity:0.6;}
 .item.collapsed{padding:14px 18px; opacity:0.55;}
+.item.collapsed.resolved{opacity:1; cursor:pointer;}
+.item.collapsed.resolved:hover{border-color:var(--accent);}
+.resolved-check{width:20px; height:20px; color:var(--ok); flex:none; display:flex;}
+.resolved-check svg{width:100%; height:100%; display:block;}
 
 .item-top{display:flex; align-items:center; justify-content:space-between; gap:8px;}
 .typepill{

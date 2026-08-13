@@ -310,6 +310,7 @@ var state = {
   editingItemId:null,
   editBuffer:null,
   editSource:null,
+  reviewNoteOpenId:null,
   newItemIds:[],
   useManualEntry:!recognitionSupported,
   manualText:'',
@@ -343,11 +344,12 @@ function bgpill(label){ return '<div class="bgpill"><span class="dot"></span>'+e
    Screens: home
 --------------------------------------------------------------------- */
 function screenHome(){
-  return '<div class="app-header" style="justify-content:space-between;">'
-    + '<button class="linkbtn" data-action="reset-demo">Reset demo data</button>'
+  var toastHtml = state.toast ? '<div class="toast">'+esc(state.toast)+'</div>' : '';
+  return '<div class="app-header" style="justify-content:flex-end;">'
     + bgpill('Microphone access allowed')
     + '</div>'
     + '<div class="screenbody">'
+    + toastHtml
     + homeHero()
     + '</div>'
     + bottomnav('home');
@@ -487,17 +489,26 @@ function screenConfirmPatient(){
     + '</div>';
 }
 
-// The next unresolved item for each patient's Note Review walk-through,
-// in creation order, read straight from storage (not state.newItemIds,
-// which is session-only and would be empty after a reload) so this screen
-// is safe to resume from anywhere, any time. Resolved items (confirmed or
-// discarded) simply drop out of this list, so the "first" entry is always
-// whichever card should be open right now.
-function pendingReviewNoteItems(){
+// All of this patient's Note Review items, in creation order, read
+// straight from storage (not state.newItemIds, which is session-only and
+// would be empty after a reload) so this screen is safe to resume from
+// anywhere, any time. Discarded items are removed from storage entirely,
+// so they simply don't appear here; approved ones stay, collapsed.
+function allReviewNoteItems(){
   var p = getPatient(DEMO_REVIEW_NOTE_PATIENT_ID);
   if(!p) return [];
-  return p.items.filter(function(it){ return it.status==='pending'; })
-    .sort(function(a,b){ return (a.createdAt||0)-(b.createdAt||0); });
+  return p.items.slice().sort(function(a,b){ return (a.createdAt||0)-(b.createdAt||0); });
+}
+
+// Which item's card should be expanded: whichever was explicitly reopened
+// (tapping a collapsed, already-approved card), falling back to the first
+// still-pending one so the walk-through continues where it left off.
+function reviewNoteOpenItem(items){
+  if(state.reviewNoteOpenId){
+    var reopened = items.find(function(it){ return it.id===state.reviewNoteOpenId; });
+    if(reopened) return reopened;
+  }
+  return items.find(function(it){ return it.status==='pending'; }) || null;
 }
 
 function reviewNoteTypePill(it){
@@ -513,10 +524,16 @@ function reviewNoteCollapsedLabel(it){
 }
 
 function reviewNoteCardHtml(it, isOpen){
-  var cls = 'item review-card' + (isOpen ? '' : ' collapsed');
+  var resolved = it.status === 'confirmed';
 
   if(!isOpen){
-    return '<div class="'+cls+'"><div class="item-top">'+reviewNoteTypePill(it)+'<span class="item-time">'+esc(reviewNoteCollapsedLabel(it))+'</span></div></div>';
+    var cls = 'item review-card collapsed' + (resolved ? ' resolved' : '');
+    var trailing = resolved
+      ? '<span class="resolved-check">'+iconCheck()+'</span>'
+      : '<span class="item-time">'+esc(reviewNoteCollapsedLabel(it))+'</span>';
+    return '<div class="'+cls+'"'+(resolved?' data-action="rn-open:'+it.id+'"':'')+'>'
+      + '<div class="item-top">'+reviewNoteTypePill(it)+trailing+'</div>'
+      + '</div>';
   }
 
   var bodyHtml;
@@ -534,7 +551,7 @@ function reviewNoteCardHtml(it, isOpen){
     bodyHtml = '<div class="item-text">'+esc(it.text)+'</div>';
   }
 
-  return '<div class="'+cls+'">'
+  return '<div class="item review-card">'
     + '<div class="item-top">'+reviewNoteTypePill(it)+'</div>'
     + bodyHtml
     + '<div class="item-actions-icons">'
@@ -550,11 +567,12 @@ function screenReviewNote(){
   if(!p) return screenReview();
   var roomMatch = p.room.match(/Room \d+/);
   var roomLabel = roomMatch ? roomMatch[0] : p.room;
-  var pending = pendingReviewNoteItems();
-  var allDone = pending.length === 0;
+  var items = allReviewNoteItems();
+  var openItem = reviewNoteOpenItem(items);
+  var hasPending = items.some(function(it){ return it.status==='pending'; });
 
-  var cardsHtml = pending.map(function(it, i){ return reviewNoteCardHtml(it, i===0); }).join('')
-    || '<div class="empty">All items reviewed.</div>';
+  var cardsHtml = items.map(function(it){ return reviewNoteCardHtml(it, !!openItem && it.id===openItem.id); }).join('')
+    || '<div class="empty">Nothing to review.</div>';
 
   var toastHtml = state.toast ? '<div class="toast">'+esc(state.toast)+'</div>' : '';
 
@@ -563,7 +581,7 @@ function screenReviewNote(){
     + '<div class="app-title">Note review</div>'
     + '<div class="app-sub">'+esc(p.name)+' · '+esc(roomLabel)+' · Just now</div>'
     + cardsHtml
-    + (allDone ? '<button class="btn btn-primary btn-block" data-action="rn-save-file">Save &amp; file</button>' : '')
+    + '<button class="btn btn-primary btn-block" data-action="rn-save-file"'+(hasPending?' disabled':'')+'>Save &amp; file</button>'
     + '</div>';
 }
 
@@ -656,7 +674,7 @@ function screenReview(){
   // never listed here, so there's exactly one place her prescriptions
   // can get confirmed. If she has anything pending, surface a way back
   // into that screen instead.
-  var reviewNotePending = pendingReviewNoteItems();
+  var reviewNotePending = allReviewNoteItems().filter(function(it){ return it.status==='pending'; });
   var reviewNoteBanner = '';
   if(reviewNotePending.length > 0){
     var ejp = getPatient(DEMO_REVIEW_NOTE_PATIENT_ID);
@@ -810,14 +828,6 @@ function handleAction(action){
     state.screen = arg1;
   }
 
-  else if(cmd==='reset-demo'){
-    if(window.confirm('Reset all demo data (patients, notes, prescriptions)?')){
-      localStorage.removeItem(STORAGE_KEY);
-      location.reload();
-    }
-    return;
-  }
-
   else if(cmd==='scanpatient'){
     state.activePatientId = arg1;
     state.scanValid = true;
@@ -875,6 +885,7 @@ function handleAction(action){
       rnA.status = 'confirmed';
       saveData();
     }
+    state.reviewNoteOpenId = null;
   }
 
   else if(cmd==='rn-discard'){
@@ -883,14 +894,21 @@ function handleAction(action){
       p4d.items = p4d.items.filter(function(i){ return i.id!==arg1; });
       saveData();
     }
+    state.reviewNoteOpenId = null;
   }
 
   else if(cmd==='rn-edit'){ openEdit(arg1, 'review-note'); return; }
 
+  else if(cmd==='rn-open'){ state.reviewNoteOpenId = arg1; }
+
   else if(cmd==='rn-save-file'){
-    state.toast = 'Filed to the patient record';
+    state.toast = 'Recording filed to the patient record';
     state.newItemIds = [];
+    state.reviewNoteOpenId = null;
     state.screen = 'home';
+    render();
+    setTimeout(function(){ state.toast=null; render(); }, 2600);
+    return;
   }
 
   else if(cmd==='confirm'){
@@ -925,6 +943,7 @@ function handleAction(action){
       // saving always confirms and advances, whatever was actually filled in.
       if(state.editSource==='review-note'){
         it4.status = 'confirmed';
+        state.reviewNoteOpenId = null;
       }
       saveData();
     }
