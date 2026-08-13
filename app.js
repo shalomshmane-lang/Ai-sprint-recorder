@@ -249,18 +249,34 @@ var recStartedAt = null;
 // mishears of technical terms (drug names, numbers) don't survive.
 var REFERENCE_SCRIPT = "Patient Emma new fever thirty-nine one. Heart rate one sixty-eight. Urine output's down to point six. And the drain's dry since this morning. I suspect the drain's blocked, not a new infection. Air entry on the right is down from yesterday, that fits with trapped fluid, not with a new source. We sent blood cultures, sent drain fluid. Stopping ceftriaxone. Starting pip-tazo and vanc, fifteen kilos. Saline bolus twenty per kilo. Ordered an urgent chest ultrasound for today.";
 
+var REFERENCE_SCRIPT_WORDS = REFERENCE_SCRIPT.split(/\s+/);
+var REFERENCE_OVERLAP_THRESHOLD = 0.34;
+
 function normalizeWords(text){
   return (text||'').toLowerCase().match(/[a-z0-9']+/g) || [];
 }
-function correctAgainstReference(heard){
+function referenceOverlap(heard){
   var heardWords = normalizeWords(heard);
-  if(heardWords.length < 2) return heard;
+  if(heardWords.length < 2) return { ratio:0, heardWordCount:heardWords.length };
   var refWords = normalizeWords(REFERENCE_SCRIPT);
   var refSet = {};
   refWords.forEach(function(w){ refSet[w] = true; });
   var matches = heardWords.filter(function(w){ return refSet[w]; }).length;
-  var overlap = matches / heardWords.length;
-  return overlap >= 0.34 ? REFERENCE_SCRIPT : heard;
+  return { ratio: matches / heardWords.length, heardWordCount: heardWords.length };
+}
+function correctAgainstReference(heard){
+  return referenceOverlap(heard).ratio >= REFERENCE_OVERLAP_THRESHOLD ? REFERENCE_SCRIPT : heard;
+}
+// While still speaking, once enough of the heard words match the known
+// script (drug names and all) to be confident this is that line, show the
+// correct wording growing in sync with how much has been said — instead of
+// waiting until the mic is released to fix mis-heard terms like
+// "ceftriaxone" or "pip-tazo".
+function liveReferencePreview(heardText){
+  var overlap = referenceOverlap(heardText);
+  if(overlap.ratio < REFERENCE_OVERLAP_THRESHOLD) return null;
+  var revealCount = Math.min(REFERENCE_SCRIPT_WORDS.length, Math.max(overlap.heardWordCount, 2));
+  return REFERENCE_SCRIPT_WORDS.slice(0, revealCount).join(' ');
 }
 
 function primeMicPermission(){
@@ -929,6 +945,11 @@ function updateLiveTranscript(finalText, interimText){
     return;
   }
   el.className = 'live-transcript';
+  var preview = liveReferencePreview(text);
+  if(preview !== null){
+    el.textContent = preview;
+    return;
+  }
   el.innerHTML = esc(finalText) + '<span class="interim">'+esc(interimText)+'</span>';
 }
 
@@ -986,7 +1007,7 @@ function finishRecording(rawText, heldMs){
 }
 
 function proceedWithClassification(rawText){
-  var isDemoReviewNote = state.activePatientId === DEMO_REVIEW_NOTE_PATIENT_ID;
+  var isEmmaJohnsonDemo = state.activePatientId === DEMO_REVIEW_NOTE_PATIENT_ID;
   state.screen = 'processing';
   render();
   setTimeout(function(){
@@ -1011,7 +1032,15 @@ function proceedWithClassification(rawText){
     state.newItemIds = newIds;
     state.scanValid = false;
 
-    if(isDemoReviewNote){
+    // The single-note "review-note" screen only makes sense for exactly
+    // one plain note (its Approve action files everything with no
+    // per-item field gating). Anything richer than that — multiple items,
+    // or a prescription still missing required fields — needs the full
+    // review screen instead, for either patient, so a prescription can
+    // never get filed without its required fields being completed.
+    var useReviewNoteScreen = isEmmaJohnsonDemo && results.length === 1 && results[0].type !== 'prescription';
+
+    if(useReviewNoteScreen){
       state.screen = 'review-note';
       render();
       return;
@@ -1023,7 +1052,7 @@ function proceedWithClassification(rawText){
     state.screen = 'review';
     render();
     setTimeout(function(){ state.toast=null; render(); }, 2600);
-  }, isDemoReviewNote ? 3000 : 500);
+  }, isEmmaJohnsonDemo ? 3000 : 500);
 }
 
 /* ---------------------------------------------------------------------
