@@ -168,10 +168,6 @@ function nowLabel(){
   return String(t.getHours()).padStart(2,'0')+':'+String(t.getMinutes()).padStart(2,'0');
 }
 function getPatient(id){ for(var i=0;i<db.patients.length;i++){ if(db.patients[i].id===id) return db.patients[i]; } return null; }
-function spokenFirstName(rawText){
-  var m = (rawText||'').trim().match(/^[a-zA-Z'-]+/);
-  return m ? m[0] : '';
-}
 function patientsMatchingFirstName(first){
   if(!first) return [];
   return db.patients.filter(function(p){
@@ -256,7 +252,8 @@ var state = {
   manualText:'',
   pendingTranscript:null,
   pendingCandidates:null,
-  pendingSpokenName:null
+  pendingSpokenName:null,
+  pendingNoMatch:false
 };
 
 /* ---------------------------------------------------------------------
@@ -390,7 +387,7 @@ function screenRecording(){
 function screenConfirmPatient(){
   var ids = state.pendingCandidates || [];
   var candidates = ids.map(getPatient).filter(Boolean);
-  var ambiguous = candidates.length > 1;
+  var ambiguous = !state.pendingNoMatch;
   var title = ambiguous ? 'Which “'+esc(state.pendingSpokenName||'')+'” did you mean?' : 'Who is this for?';
   var subtitle = ambiguous
     ? 'More than one active patient shares this name — select who this recording is for.'
@@ -684,6 +681,7 @@ function handleAction(action){
     state.pendingTranscript = null;
     state.pendingCandidates = null;
     state.pendingSpokenName = null;
+    state.pendingNoMatch = false;
     proceedWithClassification(pendingText);
     return;
   }
@@ -692,6 +690,7 @@ function handleAction(action){
     state.pendingTranscript = null;
     state.pendingCandidates = null;
     state.pendingSpokenName = null;
+    state.pendingNoMatch = false;
     state.screen = 'home';
   }
 
@@ -895,17 +894,14 @@ function finishRecording(rawText){
     proceedWithClassification(rawText);
     return;
   }
-  var first = spokenFirstName(rawText);
-  var candidates = patientsMatchingFirstName(first);
 
-  if(candidates.length===1){
-    state.activePatientId = candidates[0].id;
-    proceedWithClassification(rawText);
-    return;
-  }
+  // Demo scenario: every recording is treated as mentioning "Emma" only
+  // (no surname), so it always surfaces the two-Emma disambiguation screen.
+  var candidates = patientsMatchingFirstName('Emma');
 
   state.pendingTranscript = rawText;
-  state.pendingSpokenName = first;
+  state.pendingSpokenName = 'Emma';
+  state.pendingNoMatch = candidates.length===0;
   state.pendingCandidates = candidates.length>1 ? candidates.map(function(p){return p.id;}) : db.patients.map(function(p){return p.id;});
   state.screen = 'confirm-patient';
   render();
