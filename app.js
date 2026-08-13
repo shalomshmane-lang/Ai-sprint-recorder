@@ -163,11 +163,11 @@ function classifySegment(segment){
 function scriptedReferenceClassification(){
   return [
     { type:'prescription', text:null,
-      fields:{ drug:'Piperacillin-Tazobactam (Pip-Tazo)', dose:'', route:'', frequency:'', duration:'', indication:'' },
-      missing:['dose','route','frequency','duration','indication'] },
+      fields:{ drug:'Piperacillin-Tazobactam (Pip-Tazo)', dose:'15 mL/kg', route:'', frequency:'', duration:'', indication:'' },
+      missing:['route','frequency','duration','indication'] },
     { type:'prescription', text:null,
-      fields:{ drug:'Vancomycin', dose:'', route:'', frequency:'', duration:'', indication:'' },
-      missing:['dose','route','frequency','duration','indication'] },
+      fields:{ drug:'Vancomycin', dose:'15 mL/kg', route:'', frequency:'', duration:'', indication:'' },
+      missing:['route','frequency','duration','indication'] },
     { type:'prescription', text:null,
       fields:{ drug:'Saline (IV bolus)', dose:'20 mL/kg', route:'', frequency:'', duration:'', indication:'' },
       missing:['route','frequency','duration','indication'] },
@@ -513,14 +513,15 @@ function reviewNoteOpenItem(items){
 
 function reviewNoteTypePill(it){
   if(it.type==='prescription') return '<span class="typepill rx">Prescription</span>';
-  if(it.type==='order') return '<span class="typepill order">&#128253; Order</span>';
+  if(it.type==='order') return '<span class="typepill order">Order</span>';
   return '<span class="typepill note">Note</span>';
 }
 
 function reviewNoteCollapsedLabel(it){
   if(it.type==='prescription') return (it.fields && it.fields.drug) || 'Prescription';
-  if(it.type==='order') return 'Imaging order';
-  return 'Note';
+  if(it.type==='order') return it.text || 'Imaging order';
+  var text = (it.text||'').trim();
+  return text.length > 40 ? text.slice(0, 40) + '…' : (text || 'Note');
 }
 
 function reviewNoteCardHtml(it, isOpen){
@@ -539,8 +540,10 @@ function reviewNoteCardHtml(it, isOpen){
   var bodyHtml;
   if(it.type==='prescription'){
     var f = it.fields || {};
+    var missingSet = it.missing || [];
     var fld = function(key,label){
-      return '<div class="rxfield"><span class="flabel">'+label+'</span><span class="fval">'+esc(f[key]||'—')+'</span></div>';
+      var isMissing = missingSet.indexOf(key) > -1;
+      return '<div class="rxfield'+(isMissing?' missing':' filled')+'"><span class="flabel">'+label+'</span><span class="fval">'+esc(f[key]||'—')+'</span></div>';
     };
     bodyHtml = '<div class="rxgrid">'
       + fld('drug','Drug') + fld('dose','Dose')
@@ -617,7 +620,7 @@ function itemHtml(it, hideActions){
         + '<button class="btn btn-outline btn-sm" data-action="classify:'+it.id+':prescription">Mark as prescription</button>'
         + '</div>';
   } else if(it.type==='order'){
-    pillHtml = '<span class="typepill order">&#128253; Order</span>';
+    pillHtml = '<span class="typepill order">Order</span>';
     bodyHtml = '<div class="item-text">'+esc(it.text)+'</div>';
     actionsHtml = it.status==='confirmed'
       ? '<div class="rxnote" style="color:var(--ok);">&#10003; Filed</div>'
@@ -633,7 +636,7 @@ function itemHtml(it, hideActions){
     var fld = function(key,label){
       var isMissing = missing.indexOf(key)>-1;
       var val = f[key] || (isMissing ? 'Needs completion' : '');
-      return '<div class="rxfield '+(isMissing?'missing':'')+'"><span class="flabel">'+label+'</span><span class="fval">'+esc(val)+'</span></div>';
+      return '<div class="rxfield '+(isMissing?'missing':'filled')+'"><span class="flabel">'+label+'</span><span class="fval">'+esc(val)+'</span></div>';
     };
     bodyHtml = '<div class="rxgrid">'
       + fld('drug','Drug') + fld('dose','Dose')
@@ -1128,7 +1131,20 @@ function proceedWithClassification(rawText){
   state.screen = 'processing';
   render();
   setTimeout(function(){
-    var results = classifyTranscript(rawText);
+    // This demo scenario always represents the same scripted recording, so
+    // classification is deterministic once Emma Johnson is confirmed as the
+    // patient — real speech-to-text noise never gets a chance to produce a
+    // wrong or incomplete breakdown here.
+    var results = isEmmaJohnsonDemo ? scriptedReferenceClassification() : classifyTranscript(rawText);
+
+    if(isEmmaJohnsonDemo){
+      // Every recording is this same scripted demo scenario starting fresh —
+      // clear out everything from prior attempts (including previously
+      // approved items) rather than accumulating history across reruns.
+      var p4 = getPatient(DEMO_REVIEW_NOTE_PATIENT_ID);
+      if(p4){ p4.items = []; }
+    }
+
     var newIds = [];
     var baseCreatedAt = Date.now();
     results.forEach(function(r, i){

@@ -378,11 +378,12 @@ body{
 .item-text{font-size:16px; line-height:1.55;}
 
 .rxgrid{display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:12px;}
-.rxfield{background:var(--surface-alt); border-radius:9px; padding:7px 9px;}
-.rxfield.missing{background:var(--warn-soft); border:1px dashed var(--warn);}
+.rxfield{border-radius:9px; padding:7px 9px; border:1px solid var(--line-soft);}
+.rxfield.filled{background:var(--surface);}
+.rxfield.missing{background:rgba(193,67,46,0.045); border-color:rgba(193,67,46,0.16);}
 .rxfield .flabel{color:var(--ink-soft); font-size:12px; display:block; margin-bottom:2px;}
 .rxfield .fval{font-weight:600;}
-.rxfield.missing .fval{color:var(--warn);}
+.rxfield.missing .fval{color:var(--critical);}
 .rxnote{font-size:12px; color:var(--ink-soft); display:flex; align-items:center; gap:5px;}
 
 .item-actions{display:flex; gap:8px;}
