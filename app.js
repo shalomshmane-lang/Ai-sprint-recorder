@@ -4,7 +4,7 @@
 /* ---------------------------------------------------------------------
    Storage
 --------------------------------------------------------------------- */
-var STORAGE_KEY = 'retsef_v2_en';
+var STORAGE_KEY = 'retsef_v3_en';
 
 function seedData(){
   return {
@@ -46,6 +46,10 @@ function seedData(){
             time:'Yesterday 22:10', createdAt: Date.now()-1000*60*60*14
           }
         ]
+      },
+      {
+        id:'p4', name:'Emma Johnson', room:'Room 4 · Bed 1', age:'Age 6',
+        items:[]
       }
     ]
   };
@@ -163,15 +167,35 @@ function nowLabel(){
   return String(t.getHours()).padStart(2,'0')+':'+String(t.getMinutes()).padStart(2,'0');
 }
 function getPatient(id){ for(var i=0;i<db.patients.length;i++){ if(db.patients[i].id===id) return db.patients[i]; } return null; }
+function spokenFirstName(rawText){
+  var m = (rawText||'').trim().match(/^[a-zA-Z'-]+/);
+  return m ? m[0] : '';
+}
+function patientsMatchingFirstName(first){
+  if(!first) return [];
+  return db.patients.filter(function(p){
+    return p.name.split(' ')[0].toLowerCase() === first.toLowerCase();
+  });
+}
 function findItem(id){
   var found=null;
   db.patients.forEach(function(p){ p.items.forEach(function(i){ if(i.id===id) found=i; }); });
   return found;
 }
 function pendingCount(p){ var n=0; for(var i=0;i<p.items.length;i++){ if(p.items[i].status==='pending') n++; } return n; }
-function pendingRx(p){ var n=0; for(var i=0;i<p.items.length;i++){ if(p.items[i].status==='pending' && p.items[i].type==='prescription') n++; } return n; }
 function totalPending(){ var n=0; db.patients.forEach(function(p){ n+=pendingCount(p); }); return n; }
 function initials(name){ return name.split(' ').map(function(w){return w[0];}).join(''); }
+var AVATAR_PALETTE = [
+  {bg:'var(--accent-soft)', fg:'var(--accent-ink)'},
+  {bg:'var(--rx-soft)', fg:'var(--rx)'},
+  {bg:'var(--warn-soft)', fg:'var(--warn)'},
+  {bg:'var(--ok-soft)', fg:'var(--ok)'}
+];
+function avatarColor(id){
+  var hash = 0;
+  for(var i=0;i<id.length;i++){ hash = (hash*31 + id.charCodeAt(i)) >>> 0; }
+  return AVATAR_PALETTE[hash % AVATAR_PALETTE.length];
+}
 function esc(s){
   return String(s==null?'':s).replace(/[&<>"']/g, function(c){
     return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
@@ -184,11 +208,20 @@ function esc(s){
 var SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition || null;
 var recognitionSupported = !!SpeechRecognitionAPI;
 var RECOGNITION_LANG = 'en-US';
+var RECORD_MIN_MS = 1200;
 var recognition = null;
 var finalTranscript = '';
 var recognitionActive = false;
+var explicitStop = false;
 var recTimerInterval = null;
 var recStartedAt = null;
+
+function primeMicPermission(){
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+  navigator.mediaDevices.getUserMedia({ audio:true }).then(function(stream){
+    stream.getTracks().forEach(function(t){ t.stop(); });
+  }).catch(function(){ /* denied or unavailable — recording will fall back to manual entry when attempted */ });
+}
 
 function formatElapsed(ms){
   var totalSec = Math.floor(ms/1000);
@@ -215,7 +248,10 @@ var state = {
   editBuffer:null,
   newItemIds:[],
   useManualEntry:!recognitionSupported,
-  manualText:''
+  manualText:'',
+  pendingTranscript:null,
+  pendingCandidates:null,
+  pendingSpokenName:null
 };
 
 /* ---------------------------------------------------------------------
@@ -226,54 +262,51 @@ function iconNfc(){ return '&#128246;'; }
 function iconBg(){ return '&#8635;'; }
 function iconBell(){ return '&#128276;'; }
 function iconPerson(){ return '&#128100;'; }
-function iconInfo(){ return '&#8505;&#65039;'; }
 
-function bgpill(){ return '<div class="bgpill"><span class="dot"></span>Background active</div>'; }
+function bgpill(label){ return '<div class="bgpill"><span class="dot"></span>'+esc(label||'Background active')+'</div>'; }
 
 /* ---------------------------------------------------------------------
    Screens: home
 --------------------------------------------------------------------- */
 function screenHome(){
-  var rows = db.patients.map(function(p){
-    var c = pendingCount(p), rx = pendingRx(p);
-    var badge = c===0 ? '<span class="badge zero">0</span>' : '<span class="badge '+(rx>0?'rx':'')+'">'+c+'</span>';
-    return '<div class="patientcard" data-action="go:review">'
-      + '<div class="avatar">'+initials(p.name)+'</div>'
-      + '<div class="pinfo"><div class="pname">'+esc(p.name)+'</div><div class="pmeta">'+esc(p.room)+' · '+esc(p.age)+'</div></div>'
-      + badge + '</div>';
-  }).join('');
-
-  return '<div class="app-header">'
-    + '<div><div class="app-title">My Shift</div><div class="app-sub">'+(db.profile.name?esc(db.profile.name)+' · ':'')+db.patients.length+' patients</div></div>'
-    + bgpill()
+  return '<div class="app-header" style="justify-content:flex-end;">'
+    + bgpill('Microphone access allowed')
     + '</div>'
-    + '<div class="screenbody" style="padding-top:14px;">'
-    + '<div class="section-label">Active patients</div>'
-    + rows
-    + '<div class="section-label" style="margin-top:6px;">Assign new patient</div>'
-    + '<button class="btn btn-outline btn-block" data-action="go:nfc-scan">'+iconNfc()+'&nbsp; Scan NFC tag</button>'
-    + '<div style="flex:1"></div>'
-    + '<button class="linkbtn" data-action="reset-demo" style="align-self:center;">Reset demo data</button>'
+    + '<div class="screenbody">'
+    + homeHero()
     + '</div>'
-    + fabRow(false)
     + bottomnav('home');
 }
 
-function fabRow(active){
-  var hint = active
-    ? 'Ready to record for '+(getPatient(state.activePatientId)?esc(getPatient(state.activePatientId).name):'')
-    : 'Double-press and hold to record';
-  return '<div class="fab-row">'
-    + '<button class="fab '+(active?'':'inactive')+'" data-action="pressrecord">'+iconMic()+'</button>'
-    + '<div class="fab-hint">'+hint+'</div>'
+function iconMicOutline(){
+  return '<svg width="56" height="56" viewBox="0 0 24 24" fill="none">'
+    + '<rect x="9" y="2" width="6" height="12" rx="3" style="fill:var(--accent)"/>'
+    + '<path d="M5 11a7 7 0 0 0 14 0" style="stroke:var(--accent)" stroke-width="1.8" stroke-linecap="round"/>'
+    + '<path d="M12 18v3" style="stroke:var(--accent)" stroke-width="1.8" stroke-linecap="round"/>'
+    + '<path d="M8.5 21h7" style="stroke:var(--accent)" stroke-width="1.8" stroke-linecap="round"/>'
+    + '</svg>';
+}
+
+function homeHero(){
+  return '<div class="center-flow" style="height:100%;">'
+    + '<div style="width:100%;">'
+      + '<div class="app-title" style="font-size:40px; line-height:1.15;">Tap to record</div>'
+      + '<div class="app-sub" style="width:100%; max-width:none; margin-top:14px;">For your voice only — please avoid capturing patients, families, or colleagues.</div>'
+    + '</div>'
+    + '<div class="record-wrap">'
+      + '<div class="pulse-ring"></div>'
+      + '<div class="pulse-ring delay"></div>'
+      + '<div class="pulse-ring delay2"></div>'
+      + '<button class="record-btn" data-action="pressrecord" aria-label="Start recording">'+iconMicOutline()+'</button>'
+    + '</div>'
     + '</div>';
 }
 
 function iconHomeNav(){
-  return '<svg width="21" height="21" viewBox="0 0 24 24" fill="none"><path d="M4 11.5L12 4l8 7.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 10v8.5a1 1 0 0 0 1 1h3.5v-5a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v5H17a1 1 0 0 0 1-1V10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  return '<svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M4 11.5L12 4l8 7.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 10v8.5a1 1 0 0 0 1 1h3.5v-5a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v5H17a1 1 0 0 0 1-1V10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 }
 function iconReviewNav(){
-  return '<svg width="21" height="21" viewBox="0 0 24 24" fill="none"><rect x="5.5" y="4.5" width="13" height="16" rx="2.2" stroke="currentColor" stroke-width="1.8"/><path d="M9 4.5h6a1 1 0 0 1 1 1V7a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V5.5a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 12.5l2 2 4-4.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  return '<svg width="26" height="26" viewBox="0 0 24 24" fill="none"><rect x="5.5" y="4.5" width="13" height="16" rx="2.2" stroke="currentColor" stroke-width="1.8"/><path d="M9 4.5h6a1 1 0 0 1 1 1V7a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V5.5a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 12.5l2 2 4-4.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 }
 function bottomnav(active){
   var tp = totalPending();
@@ -290,13 +323,14 @@ function bottomnav(active){
 --------------------------------------------------------------------- */
 function screenNfcScan(){
   var chips = db.patients.map(function(t){
-    return '<button class="chipbtn" data-action="scanpatient:'+t.id+'"><div class="avatar" style="width:32px;height:32px;font-size:12px;">'+initials(t.name)+'</div><div style="flex:1;"><div style="font-weight:600; font-size:16px;">'+esc(t.name)+'</div><div style="font-size:12px; color:var(--ink-soft);">'+esc(t.room)+'</div></div><span style="color:var(--ink-faint);">'+iconNfc()+'</span></button>';
+    var c = avatarColor(t.id);
+    return '<button class="chipbtn" data-action="scanpatient:'+t.id+'"><div class="avatar" style="width:32px;height:32px;font-size:12px;background:'+c.bg+';color:'+c.fg+';">'+initials(t.name)+'</div><div style="flex:1;"><div style="font-weight:600; font-size:16px;">'+esc(t.name)+'</div><div style="font-size:14px; color:var(--ink-soft);">'+esc(t.room)+'</div></div><span style="color:var(--ink-faint);">'+iconNfc()+'</span></button>';
   }).join('');
   return '<div class="screenbody">'
     + '<div class="center-flow">'
     + '<div class="scan-ring">'+iconNfc()+'</div>'
     + '<div class="app-title">Tap the patient’s NFC tag</div>'
-    + '<div class="app-sub" style="max-width:32ch;">Real NFC only works on Android Chrome with a physical tag. In this prototype: pick the patient below.</div>'
+    + '<div class="app-sub" style="width:100%; max-width:none;">Real NFC only works on Android Chrome with a physical tag. In this prototype: pick the patient below.</div>'
     + '<div style="width:100%; display:flex; flex-direction:column; gap:8px; margin-top:4px;">'+chips+'</div>'
     + '<button class="btn btn-ghost btn-block" data-action="go:home">Cancel</button>'
     + '</div></div>';
@@ -309,7 +343,7 @@ function screenNfcSuccess(){
     + '<div class="center-flow">'
     + '<div class="scan-ring success">&#10003;</div>'
     + '<div class="app-title">Linked: '+esc(p.name)+'</div>'
-    + '<div class="app-sub" style="max-width:32ch;">This scan is valid for one recording. You can dictate several notes and prescriptions in one go — the app will split and classify them.</div>'
+    + '<div class="app-sub" style="width:100%; max-width:none;">This scan is valid for one recording. You can dictate several notes and prescriptions in one go — the app will split and classify them.</div>'
     + '<button class="btn btn-primary btn-block" data-action="pressrecord">'+iconMic()+'&nbsp; Start recording now</button>'
     + '<button class="btn btn-ghost btn-block" data-action="go:home">Back to list, record later</button>'
     + '</div></div>';
@@ -318,26 +352,14 @@ function screenNfcSuccess(){
 /* ---------------------------------------------------------------------
    Screens: recording
 --------------------------------------------------------------------- */
-function screenRecordWarning(){
-  return '<div class="screenbody">'
-    + '<div class="center-flow">'
-    + '<div class="warnbanner" style="text-align:center; flex-direction:column; align-items:center;">'
-    + '<div class="buzzicon">!</div>'
-    + '<div><b>No valid patient scan detected</b>Scan the patient’s NFC tag before recording, so the note gets linked correctly.</div>'
-    + '</div>'
-    + '<button class="btn btn-primary btn-block" data-action="go:nfc-scan">'+iconNfc()+'&nbsp; Scan now</button>'
-    + '<button class="btn btn-ghost btn-block" data-action="go:home">Cancel recording</button>'
-    + '</div></div>';
-}
 
 function screenRecording(){
   var p = getPatient(state.activePatientId);
-  if(!p) return screenHome();
 
   if(state.useManualEntry){
     return '<div class="screenbody">'
-      + '<div class="app-title">'+esc(p.name)+'</div>'
-      + '<div class="app-sub">'+esc(p.room)+' · Speech recognition isn’t supported here, or the mic was blocked — type the recording content instead</div>'
+      + '<div class="app-title">'+(p?esc(p.name):'New recording')+'</div>'
+      + '<div class="app-sub">'+(p?esc(p.room)+' · ':'')+'Speech recognition isn’t supported here, or the mic was blocked — type the recording content instead</div>'
       + '<div class="field"><textarea id="manual-transcript" placeholder="e.g. Give Tylenol 180 mg oral every 6 hours as needed for fever. Also, respiratory stable, sats 96 percent.">'+esc(state.manualText)+'</textarea></div>'
       + '<button class="btn btn-primary btn-block" data-action="submit-manual">Submit for classification</button>'
       + '<button class="btn btn-ghost btn-block" data-action="go:home">Cancel</button>'
@@ -346,16 +368,48 @@ function screenRecording(){
 
   return '<div class="screenbody">'
     + '<div class="center-flow">'
-    + '<div class="rec-patientpill">'+iconPerson()+'<span>'+esc(p.name)+' · '+esc(p.room)+'</span></div>'
+    + (p
+        ? '<div class="rec-patientpill">'+iconPerson()+'<span>'+esc(p.name)+' · '+esc(p.room)+'</span></div>'
+        : '<div class="rec-patientpill">'+iconPerson()+'<span>Start by saying the patient’s name</span></div>')
     + '<div class="rec-status" id="rec-indicator"><span class="rec-dot"></span><span id="rec-status-text">Ready to record</span></div>'
     + '<div class="rec-waveform" id="rec-waveform">'+waveformBars()+'</div>'
     + '<div class="rec-timer" id="rec-timer">00:00</div>'
     + '<button class="mic-btn" id="mic-btn"><span id="mic-icon">'+iconMic()+'</span></button>'
     + '<div class="app-sub" id="rec-hint">Press and hold the microphone to record.</div>'
-    + '<div class="ethics-note">'+iconInfo()+' Record only your own voice — avoid capturing conversations with patients or family members.</div>'
     + '<div class="live-transcript empty" id="live-transcript">Transcript will appear here as you speak…</div>'
+    + '</div>'
     + '<button class="btn btn-ghost btn-block" data-action="go:home">Cancel</button>'
-    + '</div></div>';
+    + '</div>';
+}
+
+function screenConfirmPatient(){
+  var ids = state.pendingCandidates || [];
+  var candidates = ids.map(getPatient).filter(Boolean);
+  var ambiguous = candidates.length > 1;
+  var title = ambiguous ? 'Which “'+esc(state.pendingSpokenName||'')+'” did you mean?' : 'Who is this for?';
+  var subtitle = ambiguous
+    ? 'More than one active patient shares this name — select who this recording is for.'
+    : 'We couldn’t identify a patient from the recording — please choose from your active patients.';
+
+  var chips = candidates.map(function(p){
+    var c = avatarColor(p.id);
+    return '<button class="chipbtn" data-action="confirm-patient:'+p.id+'">'
+      + '<div class="avatar" style="width:40px;height:40px;font-size:14px;background:'+c.bg+';color:'+c.fg+';">'+initials(p.name)+'</div>'
+      + '<div style="flex:1;">'
+        + '<div style="font-weight:600; font-size:16px;">'+esc(p.name)+'</div>'
+        + '<div style="font-size:14px; color:var(--ink-soft);">'+esc(p.room)+' · '+esc(p.age)+'</div>'
+      + '</div>'
+      + '</button>';
+  }).join('');
+
+  return '<div class="screenbody">'
+    + '<div class="center-flow">'
+    + '<div class="app-title">'+title+'</div>'
+    + '<div class="app-sub" style="width:100%; max-width:none;">'+subtitle+'</div>'
+    + '<div style="width:100%; display:flex; flex-direction:column; gap:12px; margin-top:10px;">'+chips+'</div>'
+    + '</div>'
+    + '<button class="btn btn-ghost btn-block" data-action="discard-recording">Discard recording</button>'
+    + '</div>';
 }
 
 function screenProcessing(){
@@ -443,8 +497,9 @@ function screenReview(){
       return rank(a)-rank(b);
     });
     var itemsHtml = sorted.map(itemHtml).join('');
+    var avCol = avatarColor(p.id);
     return '<div class="patientblock">'
-      + '<div class="patientblock-head"><div class="avatar" style="width:28px;height:28px;font-size:12px;">'+initials(p.name)+'</div><div><div class="pname">'+esc(p.name)+'</div><div class="pmeta">'+esc(p.room)+'</div></div></div>'
+      + '<div class="patientblock-head"><div class="avatar" style="width:28px;height:28px;font-size:12px;background:'+avCol.bg+';color:'+avCol.fg+';">'+initials(p.name)+'</div><div><div class="pname">'+esc(p.name)+'</div><div class="pmeta">'+esc(p.room)+'</div></div></div>'
       + '<div class="patientblock-items">'+itemsHtml+'</div>'
       + '</div>';
   }).join('');
@@ -509,8 +564,8 @@ function screenFor(id){
   if(id==='home') return screenHome();
   if(id==='nfc-scan') return screenNfcScan();
   if(id==='nfc-success') return screenNfcSuccess();
-  if(id==='record-warning') return screenRecordWarning();
   if(id==='recording') return screenRecording();
+  if(id==='confirm-patient') return screenConfirmPatient();
   if(id==='processing') return screenProcessing();
   if(id==='review') return screenReview();
   return screenHome();
@@ -585,17 +640,34 @@ function handleAction(action){
   }
 
   else if(cmd==='pressrecord'){
-    if(state.scanValid && state.activePatientId){
-      state.manualText = '';
-      state.screen = 'recording';
-    } else {
-      state.screen = 'record-warning';
-    }
+    state.activePatientId = null;
+    state.manualText = '';
+    state.screen = 'recording';
+    render();
+    if(!state.useManualEntry) startRecognition();
+    return;
   }
 
   else if(cmd==='submit-manual'){
     finishRecording(state.manualText);
     return;
+  }
+
+  else if(cmd==='confirm-patient'){
+    state.activePatientId = arg1;
+    var pendingText = state.pendingTranscript;
+    state.pendingTranscript = null;
+    state.pendingCandidates = null;
+    state.pendingSpokenName = null;
+    proceedWithClassification(pendingText);
+    return;
+  }
+
+  else if(cmd==='discard-recording'){
+    state.pendingTranscript = null;
+    state.pendingCandidates = null;
+    state.pendingSpokenName = null;
+    state.screen = 'home';
   }
 
   else if(cmd==='classify'){
@@ -679,9 +751,10 @@ function wireMicButton(){
   btn.addEventListener('pointercancel', stop);
 }
 
-function startRecognition(){
+function startRecognition(keepTranscript){
   if(!recognitionSupported || recognitionActive) return;
-  finalTranscript = '';
+  if(!keepTranscript){ finalTranscript = ''; }
+  explicitStop = false;
   try{
     recognition = new SpeechRecognitionAPI();
     recognition.lang = RECOGNITION_LANG;
@@ -706,6 +779,9 @@ function startRecognition(){
     };
     recognition.onend = function(){
       recognitionActive = false;
+      if(!explicitStop && state.screen==='recording'){
+        try{ startRecognition(true); }catch(e){}
+      }
     };
 
     recognition.start();
@@ -723,14 +799,16 @@ function startRecognition(){
     var micIcon = document.getElementById('mic-icon');
     if(micIcon){ micIcon.innerHTML = '<span class="stop-square"></span>'; }
 
-    recStartedAt = Date.now();
-    var timerEl = document.getElementById('rec-timer');
-    if(timerEl){ timerEl.textContent = '00:00'; }
-    if(recTimerInterval) clearInterval(recTimerInterval);
-    recTimerInterval = setInterval(function(){
-      var t = document.getElementById('rec-timer');
-      if(t) t.textContent = formatElapsed(Date.now() - recStartedAt);
-    }, 250);
+    if(!keepTranscript){
+      recStartedAt = Date.now();
+      var timerEl = document.getElementById('rec-timer');
+      if(timerEl){ timerEl.textContent = '00:00'; }
+      if(recTimerInterval) clearInterval(recTimerInterval);
+      recTimerInterval = setInterval(function(){
+        var t = document.getElementById('rec-timer');
+        if(t) t.textContent = formatElapsed(Date.now() - recStartedAt);
+      }, 250);
+    }
   }catch(e){
     state.useManualEntry = true;
     render();
@@ -752,12 +830,17 @@ function updateLiveTranscript(finalText, interimText){
 
 function stopRecognitionIfActive(){
   if(recTimerInterval){ clearInterval(recTimerInterval); recTimerInterval = null; }
+  explicitStop = true;
   if(recognition && recognitionActive){
     try{ recognition.stop(); }catch(e){}
   }
 }
 
 function stopRecognitionAndFinish(){
+  var tooEarly = recStartedAt && (Date.now() - recStartedAt < RECORD_MIN_MS) && !finalTranscript.trim();
+  if(tooEarly) return;
+
+  explicitStop = true;
   if(!recognition || !recognitionActive){
     if(finalTranscript.trim()){ finishRecording(finalTranscript); }
     return;
@@ -770,6 +853,27 @@ function stopRecognitionAndFinish(){
 }
 
 function finishRecording(rawText){
+  if(!rawText || !rawText.trim()){
+    proceedWithClassification(rawText);
+    return;
+  }
+  var first = spokenFirstName(rawText);
+  var candidates = patientsMatchingFirstName(first);
+
+  if(candidates.length===1){
+    state.activePatientId = candidates[0].id;
+    proceedWithClassification(rawText);
+    return;
+  }
+
+  state.pendingTranscript = rawText;
+  state.pendingSpokenName = first;
+  state.pendingCandidates = candidates.length>1 ? candidates.map(function(p){return p.id;}) : db.patients.map(function(p){return p.id;});
+  state.screen = 'confirm-patient';
+  render();
+}
+
+function proceedWithClassification(rawText){
   state.screen = 'processing';
   render();
   setTimeout(function(){
@@ -806,5 +910,6 @@ function finishRecording(rawText){
    Boot
 --------------------------------------------------------------------- */
 render();
+primeMicPermission();
 
 })();
