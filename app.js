@@ -5,6 +5,7 @@
    Storage
 --------------------------------------------------------------------- */
 var STORAGE_KEY = 'retsef_v3_en';
+var DEMO_REVIEW_NOTE_PATIENT_ID = 'p4';
 
 function seedData(){
   return {
@@ -196,6 +197,10 @@ function avatarColor(id){
   for(var i=0;i<id.length;i++){ hash = (hash*31 + id.charCodeAt(i)) >>> 0; }
   return AVATAR_PALETTE[hash % AVATAR_PALETTE.length];
 }
+function roomOnly(room){
+  var m = (room||'').match(/Room \d+/);
+  return m ? m[0] : room;
+}
 function esc(s){
   return String(s==null?'':s).replace(/[&<>"']/g, function(c){
     return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
@@ -324,7 +329,7 @@ function bottomnav(active){
 function screenNfcScan(){
   var chips = db.patients.map(function(t){
     var c = avatarColor(t.id);
-    return '<button class="chipbtn" data-action="scanpatient:'+t.id+'"><div class="avatar" style="width:32px;height:32px;font-size:12px;background:'+c.bg+';color:'+c.fg+';">'+initials(t.name)+'</div><div style="flex:1;"><div style="font-weight:600; font-size:16px;">'+esc(t.name)+'</div><div style="font-size:14px; color:var(--ink-soft);">'+esc(t.room)+'</div></div><span style="color:var(--ink-faint);">'+iconNfc()+'</span></button>';
+    return '<button class="chipbtn" data-action="scanpatient:'+t.id+'"><div class="avatar" style="width:32px;height:32px;font-size:12px;background:'+c.bg+';color:'+c.fg+';">'+initials(t.name)+'</div><div style="flex:1;"><div style="font-weight:600; font-size:16px;">'+esc(t.name)+'</div><div style="font-size:14px; color:var(--ink-soft);">'+esc(roomOnly(t.room))+'</div></div><span style="color:var(--ink-faint);">'+iconNfc()+'</span></button>';
   }).join('');
   return '<div class="screenbody">'
     + '<div class="center-flow">'
@@ -359,7 +364,7 @@ function screenRecording(){
   if(state.useManualEntry){
     return '<div class="screenbody">'
       + '<div class="app-title">'+(p?esc(p.name):'New recording')+'</div>'
-      + '<div class="app-sub">'+(p?esc(p.room)+' · ':'')+'Speech recognition isn’t supported here, or the mic was blocked — type the recording content instead</div>'
+      + '<div class="app-sub">'+(p?esc(roomOnly(p.room))+' · ':'')+'Speech recognition isn’t supported here, or the mic was blocked — type the recording content instead</div>'
       + '<div class="field"><textarea id="manual-transcript" placeholder="e.g. Give Tylenol 180 mg oral every 6 hours as needed for fever. Also, respiratory stable, sats 96 percent.">'+esc(state.manualText)+'</textarea></div>'
       + '<button class="btn btn-primary btn-block" data-action="submit-manual">Submit for classification</button>'
       + '<button class="btn btn-ghost btn-block" data-action="go:home">Cancel</button>'
@@ -369,7 +374,7 @@ function screenRecording(){
   return '<div class="screenbody">'
     + '<div class="center-flow">'
     + (p
-        ? '<div class="rec-patientpill">'+iconPerson()+'<span>'+esc(p.name)+' · '+esc(p.room)+'</span></div>'
+        ? '<div class="rec-patientpill">'+iconPerson()+'<span>'+esc(p.name)+' · '+esc(roomOnly(p.room))+'</span></div>'
         : '<div class="rec-patientpill">'+iconPerson()+'<span>Start by saying the patient’s name</span></div>')
     + '<div class="rec-status" id="rec-indicator"><span class="rec-dot"></span><span id="rec-status-text">Ready to record</span></div>'
     + '<div class="rec-waveform" id="rec-waveform">'+waveformBars()+'</div>'
@@ -397,7 +402,7 @@ function screenConfirmPatient(){
       + '<div class="avatar" style="width:40px;height:40px;font-size:14px;background:'+c.bg+';color:'+c.fg+';">'+initials(p.name)+'</div>'
       + '<div style="flex:1;">'
         + '<div style="font-weight:600; font-size:16px;">'+esc(p.name)+'</div>'
-        + '<div style="font-size:14px; color:var(--ink-soft);">'+esc(p.room)+' · '+esc(p.age)+'</div>'
+        + '<div style="font-size:14px; color:var(--ink-soft);">'+esc(roomOnly(p.room))+' · '+esc(p.age)+'</div>'
       + '</div>'
       + '</button>';
   }).join('');
@@ -409,6 +414,25 @@ function screenConfirmPatient(){
     + '<div style="width:100%; display:flex; flex-direction:column; gap:12px; margin-top:10px;">'+chips+'</div>'
     + '</div>'
     + '<button class="btn btn-ghost btn-block" data-action="discard-recording">Discard recording</button>'
+    + '</div>';
+}
+
+function screenReviewNote(){
+  var p = getPatient(DEMO_REVIEW_NOTE_PATIENT_ID);
+  if(!p) return screenReview();
+  var roomMatch = p.room.match(/Room \d+/);
+  var roomLabel = roomMatch ? roomMatch[0] : p.room;
+  var items = p.items.filter(function(it){ return state.newItemIds.indexOf(it.id) > -1; });
+  var noteHtml = items.map(function(it){ return itemHtml(it, true); }).join('');
+
+  return '<div class="screenbody">'
+    + '<div class="app-title">Review note</div>'
+    + '<div class="app-sub">'+esc(p.name)+' · '+esc(roomLabel)+' · Just now</div>'
+    + noteHtml
+    + '</div>'
+    + '<div class="note-actionbar">'
+      + '<button class="btn btn-outline btn-block" data-action="pressrecord">Re-record</button>'
+      + '<button class="btn btn-primary btn-block" data-action="approve-file">Approve &amp; file</button>'
     + '</div>';
 }
 
@@ -424,7 +448,7 @@ function screenProcessing(){
 /* ---------------------------------------------------------------------
    Item rendering (used on review screen)
 --------------------------------------------------------------------- */
-function itemHtml(it){
+function itemHtml(it, hideActions){
   var isNew = state.newItemIds.indexOf(it.id) > -1;
   var cls = 'item';
   if(it.type==='prescription') cls += ' rx';
@@ -478,7 +502,7 @@ function itemHtml(it){
 
   return '<div class="'+cls+'">'
     + '<div class="item-top">'+pillHtml+'<span class="item-time">'+esc(it.time)+'</span></div>'
-    + bodyHtml + actionsHtml
+    + bodyHtml + (hideActions ? '' : actionsHtml)
     + '</div>';
 }
 
@@ -499,7 +523,7 @@ function screenReview(){
     var itemsHtml = sorted.map(itemHtml).join('');
     var avCol = avatarColor(p.id);
     return '<div class="patientblock">'
-      + '<div class="patientblock-head"><div class="avatar" style="width:28px;height:28px;font-size:12px;background:'+avCol.bg+';color:'+avCol.fg+';">'+initials(p.name)+'</div><div><div class="pname">'+esc(p.name)+'</div><div class="pmeta">'+esc(p.room)+'</div></div></div>'
+      + '<div class="patientblock-head"><div class="avatar" style="width:28px;height:28px;font-size:12px;background:'+avCol.bg+';color:'+avCol.fg+';">'+initials(p.name)+'</div><div><div class="pname">'+esc(p.name)+'</div><div class="pmeta">'+esc(roomOnly(p.room))+'</div></div></div>'
       + '<div class="patientblock-items">'+itemsHtml+'</div>'
       + '</div>';
   }).join('');
@@ -567,6 +591,7 @@ function screenFor(id){
   if(id==='recording') return screenRecording();
   if(id==='confirm-patient') return screenConfirmPatient();
   if(id==='processing') return screenProcessing();
+  if(id==='review-note') return screenReviewNote();
   if(id==='review') return screenReview();
   return screenHome();
 }
@@ -680,6 +705,19 @@ function handleAction(action){
       }
       saveData();
     }
+  }
+
+  else if(cmd==='approve-file'){
+    var p4 = getPatient(DEMO_REVIEW_NOTE_PATIENT_ID);
+    if(p4){
+      state.newItemIds.forEach(function(id){
+        var it = p4.items.find(function(i){ return i.id===id; });
+        if(it) it.status = 'confirmed';
+      });
+      saveData();
+    }
+    state.toast = 'Approved and filed to the patient record';
+    state.screen = 'review';
   }
 
   else if(cmd==='confirm'){
@@ -874,6 +912,7 @@ function finishRecording(rawText){
 }
 
 function proceedWithClassification(rawText){
+  var isDemoReviewNote = state.activePatientId === DEMO_REVIEW_NOTE_PATIENT_ID;
   state.screen = 'processing';
   render();
   setTimeout(function(){
@@ -897,13 +936,20 @@ function proceedWithClassification(rawText){
     saveData();
     state.newItemIds = newIds;
     state.scanValid = false;
+
+    if(isDemoReviewNote){
+      state.screen = 'review-note';
+      render();
+      return;
+    }
+
     state.toast = newIds.length===0
       ? 'No content detected in the recording'
       : (newIds.length>1 ? (newIds.length+' new items classified') : 'New item classified');
     state.screen = 'review';
     render();
     setTimeout(function(){ state.toast=null; render(); }, 2600);
-  }, 500);
+  }, isDemoReviewNote ? 3000 : 500);
 }
 
 /* ---------------------------------------------------------------------

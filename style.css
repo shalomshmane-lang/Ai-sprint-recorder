@@ -319,6 +319,12 @@ body{
 .patientblock-head .pmeta{font-size:14px; color:var(--ink-soft);}
 .patientblock-items{display:flex; flex-direction:column; padding:16px; gap:14px;}
 
+.note-actionbar{
+  flex:none; display:flex; gap:10px;
+  padding:14px 18px; background:var(--surface); border-top:1px solid var(--line);
+}
+.note-actionbar .btn{flex:1;}
+
 .item{
   border:1px solid var(--line-soft); border-radius:12px; padding:18px;
   box-shadow:var(--card-shadow);
