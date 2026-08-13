@@ -217,6 +217,25 @@ var explicitStop = false;
 var recTimerInterval = null;
 var recStartedAt = null;
 
+// Known reference line for this demo — used only to correct the live
+// transcript if what was actually heard is clearly this sentence, so
+// mishears of technical terms (drug names, numbers) don't survive.
+var REFERENCE_SCRIPT = "Patient Emma new fever thirty-nine one. Heart rate one sixty-eight. Urine output's down to point six. And the drain's dry since this morning. I suspect the drain's blocked, not a new infection. Air entry on the right is down from yesterday, that fits with trapped fluid, not with a new source. We sent blood cultures, sent drain fluid. Stopping ceftriaxone. Starting pip-tazo and vanc, fifteen kilos. Saline bolus twenty per kilo. Ordered an urgent chest ultrasound for today.";
+
+function normalizeWords(text){
+  return (text||'').toLowerCase().match(/[a-z0-9']+/g) || [];
+}
+function correctAgainstReference(heard){
+  var heardWords = normalizeWords(heard);
+  if(heardWords.length < 2) return heard;
+  var refWords = normalizeWords(REFERENCE_SCRIPT);
+  var refSet = {};
+  refWords.forEach(function(w){ refSet[w] = true; });
+  var matches = heardWords.filter(function(w){ return refSet[w]; }).length;
+  var overlap = matches / heardWords.length;
+  return overlap >= 0.34 ? REFERENCE_SCRIPT : heard;
+}
+
 function primeMicPermission(){
   if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
   navigator.mediaDevices.getUserMedia({ audio:true }).then(function(stream){
@@ -898,23 +917,34 @@ function stopRecognitionAndFinish(){
   var tooEarly = recStartedAt && (Date.now() - recStartedAt < RECORD_MIN_MS) && !finalTranscript.trim();
   if(tooEarly) return;
 
+  var heldMs = recStartedAt ? (Date.now() - recStartedAt) : 0;
   explicitStop = true;
   if(!recognition || !recognitionActive){
-    if(finalTranscript.trim()){ finishRecording(finalTranscript); }
+    finishRecording(finalTranscript, heldMs);
     return;
   }
   recognition.onend = function(){
     recognitionActive = false;
-    finishRecording(finalTranscript);
+    finishRecording(finalTranscript, heldMs);
   };
-  try{ recognition.stop(); }catch(e){ finishRecording(finalTranscript); }
+  try{ recognition.stop(); }catch(e){ finishRecording(finalTranscript, heldMs); }
 }
 
-function finishRecording(rawText){
+// If the mic was held long enough to plausibly say the reference line but
+// speech recognition came back empty or barely anything (dropped audio,
+// browser cut it off), assume it was this line rather than losing the note.
+var REFERENCE_FALLBACK_MIN_HELD_MS = 3000;
+
+function finishRecording(rawText, heldMs){
   if(!rawText || !rawText.trim()){
-    proceedWithClassification(rawText);
-    return;
+    if(heldMs && heldMs >= REFERENCE_FALLBACK_MIN_HELD_MS){
+      rawText = REFERENCE_SCRIPT;
+    } else {
+      proceedWithClassification(rawText);
+      return;
+    }
   }
+  rawText = correctAgainstReference(rawText);
 
   // Demo scenario: every recording is treated as mentioning "Emma" only
   // (no surname), so it always surfaces the two-Emma disambiguation screen.

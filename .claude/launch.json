@@ -1,0 +1,19 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "ecommerce-prototype",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "8123", "--directory", "ecommerce-prototype"],
+      "port": 8123,
+      "autoPort": false
+    },
+    {
+      "name": "retsef",
+      "runtimeExecutable": "powershell.exe",
+      "runtimeArgs": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "serve-preview.ps1"],
+      "port": 8935,
+      "autoPort": false
+    }
+  ]
+}
