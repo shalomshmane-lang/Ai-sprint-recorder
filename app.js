@@ -482,8 +482,8 @@ function itemHtml(it, hideActions){
     actionsHtml = it.status==='confirmed'
       ? '<div class="rxnote" style="color:var(--ok);">&#10003; Confirmed and saved</div>'
       : '<div class="item-actions">'
-        + '<button class="btn btn-outline btn-sm btn-icon" title="Edit" aria-label="Edit" data-action="edit:'+it.id+'">&#9998;</button>'
-        + '<button class="btn '+(canConfirm?'btn-primary':'btn-ghost')+' btn-sm btn-icon" '+(canConfirm?'title="Confirm & save"':'title="Complete the missing fields before confirming"')+' aria-label="Confirm" data-action="'+(canConfirm?('confirm:'+it.id):'edit:'+it.id)+'">'+(canConfirm?'&#10003;':'&#9998;')+'</button>'
+        + '<button class="btn btn-outline btn-sm" data-action="edit:'+it.id+'">Edit</button>'
+        + '<button class="btn '+(canConfirm?'btn-primary':'btn-ghost')+' btn-sm" '+(canConfirm?'':'title="Complete the missing fields before confirming"')+' data-action="'+(canConfirm?('confirm:'+it.id):'edit:'+it.id)+'">'+(canConfirm?'Confirm & save':'Complete fields')+'</button>'
         + '</div>';
   } else {
     pillHtml = '<span class="typepill note">Note</span>';
@@ -491,9 +491,9 @@ function itemHtml(it, hideActions){
     actionsHtml = it.status==='confirmed'
       ? '<div class="rxnote" style="color:var(--ok);">&#10003; Filed</div>'
       : '<div class="item-actions">'
-        + '<button class="btn btn-outline btn-sm btn-icon" title="Edit" aria-label="Edit" data-action="edit:'+it.id+'">&#9998;</button>'
-        + '<button class="btn btn-ghost btn-sm btn-icon" title="Discard" aria-label="Discard" data-action="reject:'+it.id+'">&#128465;</button>'
-        + '<button class="btn btn-primary btn-sm btn-icon" title="Confirm & file" aria-label="Confirm" data-action="confirm:'+it.id+'">&#10003;</button>'
+        + '<button class="btn btn-outline btn-sm" data-action="edit:'+it.id+'">Edit</button>'
+        + '<button class="btn btn-ghost btn-sm" data-action="reject:'+it.id+'">Discard</button>'
+        + '<button class="btn btn-primary btn-sm" data-action="confirm:'+it.id+'">Confirm & file</button>'
         + '</div>';
   }
 
@@ -517,7 +517,7 @@ function screenReview(){
       var rank = function(i){ return i.status==='confirmed' ? 3 : (i.type==='prescription'?0:(i.type==='uncertain'?1:2)); };
       return rank(a)-rank(b);
     });
-    var itemsHtml = sorted.map(function(i){ return itemHtml(i); }).join('');
+    var itemsHtml = sorted.map(itemHtml).join('');
     var avCol = avatarColor(p.id);
     return '<div class="patientblock">'
       + '<div class="patientblock-head"><div class="avatar" style="width:28px;height:28px;font-size:12px;background:'+avCol.bg+';color:'+avCol.fg+';">'+initials(p.name)+'</div><div><div class="pname">'+esc(p.name)+'</div><div class="pmeta">'+esc(roomOnly(p.room))+'</div></div></div>'
