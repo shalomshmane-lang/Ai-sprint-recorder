@@ -93,7 +93,9 @@ body{
   min-height:0;
   padding:18px 18px 20px;
   display:flex; flex-direction:column; gap:14px;
+  scrollbar-width:none; -ms-overflow-style:none;
 }
+.screenbody::-webkit-scrollbar{display:none;}
 
 .app-header{
   display:flex; justify-content:space-between; align-items:center;
@@ -139,9 +141,10 @@ body{
 .btn-sm{padding:9px 12px; border-radius:9px;}
 .btn-block{width:100%;}
 
-.field{display:flex; flex-direction:column; gap:5px; text-align:left;}
+.field{display:flex; flex-direction:column; gap:5px; text-align:left; min-width:0;}
 .field label{font-size:12px; font-weight:500; color:var(--ink-soft);}
 .field input, .field textarea, .field select{
+  width:100%; min-width:0; box-sizing:border-box;
   font-family:var(--font-body); font-size:16px;
   border:1.5px solid var(--line-soft); border-radius:10px;
   padding:11px 12px; color:var(--ink); background:var(--surface);
@@ -391,12 +394,14 @@ body{
   max-width:88%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
 
-.modal-overlay{position:fixed; inset:0; background:rgba(10,14,13,0.45); display:flex; align-items:flex-end; justify-content:center; z-index:20;}
+.modal-overlay{position:absolute; inset:0; background:rgba(10,14,13,0.45); display:flex; align-items:flex-end; justify-content:center; z-index:20;}
 .modal{
   width:100%; max-width:480px; background:var(--surface); border-radius:22px 22px 0 0;
   padding:24px 24px 32px; display:flex; flex-direction:column; gap:16px;
-  max-height:88vh; overflow-y:auto;
+  max-height:88%; overflow-y:auto;
+  scrollbar-width:none; -ms-overflow-style:none;
 }
+.modal::-webkit-scrollbar{display:none;}
 .modal-handle{width:36px; height:4px; border-radius:3px; background:var(--line); margin:0 auto 4px;}
 .modal-actions{display:flex; gap:10px; margin-top:4px;}
 .modal-actions .btn{flex:1;}

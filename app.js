@@ -343,7 +343,8 @@ function bgpill(label){ return '<div class="bgpill"><span class="dot"></span>'+e
    Screens: home
 --------------------------------------------------------------------- */
 function screenHome(){
-  return '<div class="app-header" style="justify-content:flex-end;">'
+  return '<div class="app-header" style="justify-content:space-between;">'
+    + '<button class="linkbtn" data-action="reset-demo">Reset demo data</button>'
     + bgpill('Microphone access allowed')
     + '</div>'
     + '<div class="screenbody">'
@@ -500,7 +501,7 @@ function pendingReviewNoteItems(){
 }
 
 function reviewNoteTypePill(it){
-  if(it.type==='prescription') return '<span class="typepill rx">&#8478; Prescription</span>';
+  if(it.type==='prescription') return '<span class="typepill rx">Prescription</span>';
   if(it.type==='order') return '<span class="typepill order">&#128253; Order</span>';
   return '<span class="typepill note">Note</span>';
 }
@@ -518,24 +519,19 @@ function reviewNoteCardHtml(it, isOpen){
     return '<div class="'+cls+'"><div class="item-top">'+reviewNoteTypePill(it)+'<span class="item-time">'+esc(reviewNoteCollapsedLabel(it))+'</span></div></div>';
   }
 
-  var bodyHtml, canApprove;
+  var bodyHtml;
   if(it.type==='prescription'){
     var f = it.fields || {};
-    var missing = it.missing || [];
     var fld = function(key,label){
-      var isMissing = missing.indexOf(key)>-1;
-      var val = f[key] || (isMissing ? 'Needs completion' : '');
-      return '<div class="rxfield '+(isMissing?'missing':'')+'"><span class="flabel">'+label+'</span><span class="fval">'+esc(val)+'</span></div>';
+      return '<div class="rxfield"><span class="flabel">'+label+'</span><span class="fval">'+esc(f[key]||'—')+'</span></div>';
     };
     bodyHtml = '<div class="rxgrid">'
       + fld('drug','Drug') + fld('dose','Dose')
       + fld('route','Route') + fld('frequency','Frequency')
       + fld('duration','Duration') + fld('indication','Indication')
       + '</div>';
-    canApprove = missing.length === 0;
   } else {
     bodyHtml = '<div class="item-text">'+esc(it.text)+'</div>';
-    canApprove = true;
   }
 
   return '<div class="'+cls+'">'
@@ -544,7 +540,7 @@ function reviewNoteCardHtml(it, isOpen){
     + '<div class="item-actions-icons">'
       + '<button class="icon-btn critical" aria-label="Discard" data-action="rn-discard:'+it.id+'">'+iconTrash()+'</button>'
       + '<button class="icon-btn" aria-label="Edit" data-action="rn-edit:'+it.id+'">'+iconPencil()+'</button>'
-      + '<button class="icon-btn ok'+(canApprove?'':' disabled')+'" aria-label="Approve"'+(canApprove?'':' title="Complete the missing fields first"')+' data-action="'+(canApprove?('rn-approve:'+it.id):'rn-edit:'+it.id)+'">'+iconCheck()+'</button>'
+      + '<button class="icon-btn ok" aria-label="Approve" data-action="rn-approve:'+it.id+'">'+iconCheck()+'</button>'
     + '</div>'
     + '</div>';
 }
@@ -613,7 +609,7 @@ function itemHtml(it, hideActions){
         + '<button class="btn btn-primary btn-sm" data-action="confirm:'+it.id+'">Confirm & file</button>'
         + '</div>';
   } else if(it.type==='prescription'){
-    pillHtml = '<span class="typepill rx">&#8478; Prescription</span>';
+    pillHtml = '<span class="typepill rx">Prescription</span>';
     var f = it.fields || {};
     var missing = it.missing || [];
     var fld = function(key,label){
@@ -721,8 +717,8 @@ function screenEdit(){
       + fieldInput('frequency','Frequency', eb.fields.frequency)
       + '</div>'
       + '<div class="field-row">'
-      + fieldInput('duration','Duration', eb.fields.duration, (eb.missing||[]).indexOf('duration')>-1)
-      + fieldInput('indication','Indication', eb.fields.indication, (eb.missing||[]).indexOf('indication')>-1)
+      + fieldInput('duration','Duration', eb.fields.duration, state.editSource!=='review-note' && (eb.missing||[]).indexOf('duration')>-1)
+      + fieldInput('indication','Indication', eb.fields.indication, state.editSource!=='review-note' && (eb.missing||[]).indexOf('indication')>-1)
       + '</div>';
   } else {
     body = '<div class="field"><label>Note content</label><textarea id="edit-text">'+esc(eb.text||'')+'</textarea></div>';
@@ -875,7 +871,7 @@ function handleAction(action){
 
   else if(cmd==='rn-approve'){
     var rnA = findItem(arg1);
-    if(rnA && (rnA.type!=='prescription' || (rnA.missing||[]).length===0)){
+    if(rnA){
       rnA.status = 'confirmed';
       saveData();
     }
@@ -925,11 +921,9 @@ function handleAction(action){
         it4.text = state.editBuffer.text;
       }
       // From the Note Review accordion, saving an edit is itself one of
-      // the three ways to resolve a card — but a prescription still isn't
-      // safe to file until every required field is actually filled in, so
-      // only auto-confirm (and so advance to the next card) once it's
-      // genuinely complete. An incomplete prescription just stays open.
-      if(state.editSource==='review-note' && (it4.type!=='prescription' || it4.missing.length===0)){
+      // the three ways to resolve a card - fields there are optional, so
+      // saving always confirms and advances, whatever was actually filled in.
+      if(state.editSource==='review-note'){
         it4.status = 'confirmed';
       }
       saveData();
