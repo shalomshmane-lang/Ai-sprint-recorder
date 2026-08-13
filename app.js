@@ -264,6 +264,15 @@ function iconNfc(){ return '&#128246;'; }
 function iconBg(){ return '&#8635;'; }
 function iconBell(){ return '&#128276;'; }
 function iconPerson(){ return '&#128100;'; }
+function iconPencil(){
+  return '<svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M4 20l0.9-3.6L15.6 5.7a1.5 1.5 0 0 1 2.1 0l0.6 0.6a1.5 1.5 0 0 1 0 2.1L7.6 19.1 4 20Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/></svg>';
+}
+function iconTrash(){
+  return '<svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M5 7h14M9.5 7V5.2a1 1 0 0 1 1-1h5a1 1 0 0 1 1 1V7M10 11v6M14 11v6M6.5 7l1 11.5a1.5 1.5 0 0 0 1.5 1.4h6a1.5 1.5 0 0 0 1.5-1.4L17.5 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+}
+function iconCheck(){
+  return '<svg width="30" height="30" viewBox="0 0 24 24" fill="none"><path d="M5 12.5l4.5 4.5L19 7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+}
 
 function bgpill(label){ return '<div class="bgpill"><span class="dot"></span>'+esc(label||'Background active')+'</div>'; }
 
@@ -421,6 +430,7 @@ function screenReviewNote(){
   var roomLabel = roomMatch ? roomMatch[0] : p.room;
   var items = p.items.filter(function(it){ return state.newItemIds.indexOf(it.id) > -1; });
   var noteHtml = items.map(function(it){ return itemHtml(it, true); }).join('');
+  var firstItemId = items.length ? items[0].id : '';
 
   return '<div class="screenbody">'
     + '<div class="app-title">Review note</div>'
@@ -428,8 +438,9 @@ function screenReviewNote(){
     + noteHtml
     + '</div>'
     + '<div class="note-actionbar">'
-      + '<button class="btn btn-outline btn-block" data-action="pressrecord">Re-record</button>'
-      + '<button class="btn btn-primary btn-block" data-action="approve-file">Approve &amp; file</button>'
+      + '<button class="icon-btn critical" aria-label="Discard" data-action="note-discard">'+iconTrash()+'</button>'
+      + '<button class="icon-btn" aria-label="Edit" data-action="edit:'+firstItemId+'">'+iconPencil()+'</button>'
+      + '<button class="icon-btn primary" aria-label="Approve and file" data-action="approve-file">'+iconCheck()+'</button>'
     + '</div>';
 }
 
@@ -717,6 +728,16 @@ function handleAction(action){
     }
     state.toast = 'Approved and filed to the patient record';
     state.screen = 'review';
+  }
+
+  else if(cmd==='note-discard'){
+    var p4d = getPatient(DEMO_REVIEW_NOTE_PATIENT_ID);
+    if(p4d){
+      p4d.items = p4d.items.filter(function(i){ return state.newItemIds.indexOf(i.id) === -1; });
+      saveData();
+    }
+    state.newItemIds = [];
+    state.screen = 'home';
   }
 
   else if(cmd==='confirm'){

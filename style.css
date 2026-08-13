@@ -5,7 +5,7 @@
   --surface-alt:#EBF0EF;
   --ink:#12191B;
   --ink-soft:#55666B;
-  --ink-faint:#8A9A9A;
+  --ink-faint:#64707A;
   --line:#DCE3E2;
   --line-soft:rgba(18,25,27,0.06);
   --card-shadow:0 1px 2px rgba(18,25,27,0.04);
@@ -17,7 +17,7 @@
   --rx-soft:#EFE9F8;
   --ok:#2F7D53;
   --ok-soft:#E1F3E7;
-  --warn:#B4780F;
+  --warn:#8A5A0C;
   --warn-soft:#FBEDD8;
   --critical:#C1432E;
   --critical-soft:#FBE4DF;
@@ -168,7 +168,7 @@ body{
 
 .record-wrap{
   position:relative;
-  width:220px; height:220px;
+  width:230px; height:230px;
   display:flex; align-items:center; justify-content:center;
   flex:none; margin-top:8px;
 }
@@ -185,7 +185,7 @@ body{
 }
 .record-btn{
   position:relative;
-  width:168px; height:168px; border-radius:50%;
+  width:176px; height:176px; border-radius:50%;
   background:var(--surface); border:none;
   box-shadow:0 20px 45px rgba(31,111,107,0.14), 0 4px 10px rgba(31,111,107,0.08);
   display:flex; align-items:center; justify-content:center;
@@ -323,7 +323,15 @@ body{
   flex:none; display:flex; gap:10px;
   padding:14px 18px; background:var(--surface); border-top:1px solid var(--line);
 }
-.note-actionbar .btn{flex:1;}
+.icon-btn{
+  flex:1; display:flex; align-items:center; justify-content:center;
+  height:60px; border-radius:12px; cursor:pointer;
+  background:var(--surface); border:1px solid var(--line);
+  color:var(--ink); transition:filter .12s, transform .05s;
+}
+.icon-btn:active{transform:scale(0.96);}
+.icon-btn.critical{color:var(--critical); border-color:var(--critical-soft);}
+.icon-btn.primary{background:var(--accent); border-color:var(--accent); color:#fff;}
 
 .item{
   border:1px solid var(--line-soft); border-radius:12px; padding:18px;
