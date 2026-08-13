@@ -375,7 +375,7 @@ body{
 
 .item-actions-icons{display:flex; gap:10px;}
 .item-time{font-size:12px; color:var(--ink-faint); font-variant-numeric:tabular-nums;}
-.item-text{font-size:16px; line-height:1.55;}
+.item-text{font-size:14px; line-height:1.55;}
 
 .rxgrid{display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:12px;}
 .rxfield{border-radius:9px; padding:7px 9px; border:1px solid var(--line-soft);}
@@ -393,9 +393,9 @@ body{
 
 .toast{
   position:sticky; top:8px; align-self:center;
-  background:var(--ink); color:#fff;
-  padding:9px 16px; border-radius:100px; font-size:12px; font-weight:600;
-  box-shadow:0 8px 20px rgba(0,0,0,0.2); z-index:6;
+  background:var(--rx); color:#fff;
+  padding:14px 22px; border-radius:100px; font-size:16px; font-weight:700;
+  box-shadow:0 10px 26px -4px rgba(103,72,168,0.45); z-index:6;
   max-width:88%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
 
